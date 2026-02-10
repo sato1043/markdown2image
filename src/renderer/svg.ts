@@ -266,27 +266,22 @@ export class SvgRenderer implements Renderer {
     return elements.join('\n')
   }
 
-  /** 画像プレースホルダーをSVGに変換する */
+  /** 画像をSVGに変換する */
   private renderImage(box: LayoutBox): string {
     const elements: string[] = []
 
     if (box.src) {
-      // SVGのimage要素で画像を表示する
       elements.push(
         `<image x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" href="${escapeXml(box.src)}" preserveAspectRatio="xMidYMid meet" />`,
       )
-    }
-
-    // altテキストをフォールバックで表示する
-    if (box.alt) {
+    } else {
+      // 画像が取得できなかった場合のフォールバック
       elements.push(
-        `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1" rx="4" opacity="${box.src ? '0' : '1'}" />`,
+        `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1" rx="4" />`,
       )
-      if (!box.src) {
-        elements.push(
-          `<text x="${box.x + box.width / 2}" y="${box.y + box.height / 2}" text-anchor="middle" dominant-baseline="middle" fill="#656d76" font-size="14">${escapeXml(box.alt)}</text>`,
-        )
-      }
+      elements.push(
+        `<text x="${box.x + box.width / 2}" y="${box.y + box.height / 2}" text-anchor="middle" dominant-baseline="middle" fill="#656d76" font-size="14">${escapeXml(box.alt ?? 'image')}</text>`,
+      )
     }
 
     return elements.join('\n')

@@ -2,6 +2,7 @@ import { createHighlighter } from 'shiki'
 import { parseMarkdown } from '../parser/markdown'
 import { LayoutEngine } from '../layout/engine'
 import { SvgRenderer } from '../renderer/svg'
+import type { LayoutBox } from '../types/layout'
 
 const SAMPLE_MARKDOWN = `# markdown2image
 
@@ -83,6 +84,46 @@ const SUPPORTED_LANGS = [
   'kotlin',
 ] as const
 
+/** 画像URLをfetchしてBase64 data URIに変換するキャッシュ */
+const imageCache = new Map<string, string>()
+
+/** URLの画像をBase64 data URIとして返す */
+async function fetchAsDataUri(url: string): Promise<string> {
+  const cached = imageCache.get(url)
+  if (cached) return cached
+
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return url
+    const blob = await response.blob()
+    const dataUri = await blobToDataUri(blob)
+    imageCache.set(url, dataUri)
+    return dataUri
+  } catch {
+    return url
+  }
+}
+
+/** BlobをBase64 data URIに変換する */
+function blobToDataUri(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
+/** LayoutBox内の画像srcを再帰的にdata URIに変換する */
+async function resolveImages(box: LayoutBox): Promise<void> {
+  if (box.type === 'image' && box.src && !box.src.startsWith('data:')) {
+    box.src = await fetchAsDataUri(box.src)
+  }
+  for (const child of box.children) {
+    await resolveImages(child)
+  }
+}
+
 export async function initApp(): Promise<void> {
   const textarea = document.getElementById('markdown-input') as HTMLTextAreaElement
   const preview = document.getElementById('svg-preview') as HTMLDivElement
@@ -95,11 +136,13 @@ export async function initApp(): Promise<void> {
   const engine = new LayoutEngine()
   const renderer = new SvgRenderer()
   let currentSvg = ''
+  let renderTimer: ReturnType<typeof setTimeout> | null = null
 
-  function render(): void {
+  async function render(): Promise<void> {
     const markdown = textarea.value
     const ast = parseMarkdown(markdown)
     const layout = engine.layout(ast)
+    await resolveImages(layout)
     currentSvg = renderer.render(layout)
     preview.innerHTML = currentSvg
   }
@@ -107,9 +150,15 @@ export async function initApp(): Promise<void> {
   textarea.value = SAMPLE_MARKDOWN
 
   // 初回レンダリング（ハイライトなし）
-  render()
+  await render()
 
-  textarea.addEventListener('input', render)
+  // 入力時はデバウンスして非同期レンダリングする
+  textarea.addEventListener('input', () => {
+    if (renderTimer) clearTimeout(renderTimer)
+    renderTimer = setTimeout(() => {
+      render()
+    }, 200)
+  })
 
   downloadSvgBtn.addEventListener('click', () => {
     if (!currentSvg) return
@@ -128,5 +177,5 @@ export async function initApp(): Promise<void> {
     langs: [...SUPPORTED_LANGS],
   })
   engine.setHighlighter(highlighter)
-  render()
+  await render()
 }
