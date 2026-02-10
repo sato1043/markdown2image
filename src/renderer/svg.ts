@@ -1,6 +1,11 @@
 import type { LayoutBox, TextLine, TextSpan, SpanStyle } from '../types/layout'
 import type { Renderer } from '../types/renderer'
 
+const INLINE_CODE_BG = '#f6f8fa'
+const INLINE_CODE_BORDER = '#d0d7de'
+const INLINE_CODE_PAD = 4
+const INLINE_CODE_PAD_V = 2
+
 /** LayoutBoxツリーからSVG文字列を生成するレンダラー */
 export class SvgRenderer implements Renderer {
   render(layout: LayoutBox): string {
@@ -19,7 +24,6 @@ export class SvgRenderer implements Renderer {
       case 'document':
         return box.children.map(child => this.renderBox(child)).join('\n')
       case 'heading':
-        return this.renderTextBlock(box)
       case 'paragraph':
         return this.renderTextBlock(box)
       case 'code-block':
@@ -56,44 +60,46 @@ export class SvgRenderer implements Renderer {
   private renderTextLine(line: TextLine, x: number, y: number): string {
     if (line.spans.length === 0) return ''
 
-    // ベースラインを行の高さの75%の位置とする (概算)
     const baselineY = y + line.height * 0.75
     const parts: string[] = []
     let cursorX = x
 
     for (const span of line.spans) {
+      const w = span.width ?? 0
       const attrs = this.spanAttributes(span.style)
       const escaped = escapeXml(span.text)
 
-      if (span.style.strikethrough) {
-        const width = this.estimateSpanWidth(span)
+      if (span.style.code) {
+        // インラインコード: 背景矩形 + テキスト
         parts.push(
-          `<text x="${cursorX}" y="${baselineY}" ${attrs}>${escaped}</text>`,
-        )
-        // 取り消し線 (テキスト中央に線を引く)
-        const strikeY = y + line.height * 0.55
-        parts.push(
-          `<line x1="${cursorX}" y1="${strikeY}" x2="${cursorX + width}" y2="${strikeY}" stroke="${span.style.color}" stroke-width="1" />`,
-        )
-        cursorX += width
-      } else if (span.style.code) {
-        // インラインコード: 背景付き
-        const width = this.estimateSpanWidth(span)
-        const bgPad = 3
-        parts.push(
-          `<rect x="${cursorX - bgPad}" y="${y + 2}" width="${width + bgPad * 2}" height="${line.height - 4}" rx="3" fill="#f6f8fa" stroke="#d0d7de" stroke-width="0.5" />`,
+          `<rect x="${cursorX}" y="${y + INLINE_CODE_PAD_V}" width="${w + INLINE_CODE_PAD * 2}" height="${line.height - INLINE_CODE_PAD_V * 2}" rx="4" fill="${INLINE_CODE_BG}" stroke="${INLINE_CODE_BORDER}" stroke-width="0.5" />`,
         )
         parts.push(
-          `<text x="${cursorX}" y="${baselineY}" ${attrs}>${escaped}</text>`,
+          `<text x="${cursorX + INLINE_CODE_PAD}" y="${baselineY}" ${attrs}>${escaped}</text>`,
         )
-        cursorX += width + bgPad * 2
+        cursorX += w + INLINE_CODE_PAD * 2 + 2
       } else {
         parts.push(
           `<text x="${cursorX}" y="${baselineY}" ${attrs}>${escaped}</text>`,
         )
-        // テキスト幅は次のspanのx位置に反映させる必要がある
-        // SVGではtextLength等を使うのが理想だがPhase 1ではフォントサイズからの概算を使う
-        cursorX += this.estimateSpanWidth(span)
+
+        // リンクの下線
+        if (span.style.link) {
+          const underlineY = baselineY + 2
+          parts.push(
+            `<line x1="${cursorX}" y1="${underlineY}" x2="${cursorX + w}" y2="${underlineY}" stroke="${span.style.color}" stroke-width="1" />`,
+          )
+        }
+
+        // 取り消し線
+        if (span.style.strikethrough) {
+          const strikeY = y + line.height * 0.55
+          parts.push(
+            `<line x1="${cursorX}" y1="${strikeY}" x2="${cursorX + w}" y2="${strikeY}" stroke="${span.style.color}" stroke-width="1" />`,
+          )
+        }
+
+        cursorX += w
       }
     }
 
@@ -109,22 +115,6 @@ export class SvgRenderer implements Renderer {
     if (style.bold) attrs.push('font-weight="bold"')
     if (style.italic) attrs.push('font-style="italic"')
     return attrs.join(' ')
-  }
-
-  /** テキスト幅の概算 (実際のmeasureTextの結果は保持していないため概算する) */
-  private estimateSpanWidth(span: TextSpan): number {
-    // 日本語文字は fontSize とほぼ同じ幅、ASCII文字は fontSize * 0.6 と仮定する
-    let width = 0
-    for (const char of span.text) {
-      const code = char.codePointAt(0) ?? 0
-      if (code > 0x7f) {
-        width += span.style.fontSize
-      } else {
-        width += span.style.fontSize * 0.6
-      }
-    }
-    if (span.style.bold) width *= 1.05
-    return width
   }
 
   /** コードブロックをSVGに変換する */

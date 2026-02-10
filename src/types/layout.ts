@@ -34,6 +34,8 @@ export type SpanStyle = {
 export type TextSpan = {
   text: string
   style: SpanStyle
+  /** measureTextで計測した正確な幅 (px) */
+  width?: number
 }
 
 /** 折り返し済みの1行 */

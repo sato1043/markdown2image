@@ -90,6 +90,13 @@ export class TextMeasurer {
       })
     }
 
+    // 各spanに正確な幅を設定する
+    for (const line of lines) {
+      for (const span of line.spans) {
+        span.width = this.measureWidth(span.text, span.style)
+      }
+    }
+
     return lines
   }
 
