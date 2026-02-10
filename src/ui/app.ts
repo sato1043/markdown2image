@@ -2,6 +2,7 @@ import { createHighlighter } from 'shiki'
 import { parseMarkdown } from '../parser/markdown'
 import { LayoutEngine } from '../layout/engine'
 import { SvgRenderer } from '../renderer/svg'
+import { svgToPng } from '../renderer/png'
 import type { LayoutBox } from '../types/layout'
 
 const SAMPLE_MARKDOWN = `# markdown2image
@@ -84,6 +85,16 @@ const SUPPORTED_LANGS = [
   'kotlin',
 ] as const
 
+/** Blobをファイルとしてダウンロードする */
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 /** 画像URLをfetchしてBase64 data URIに変換するキャッシュ */
 const imageCache = new Map<string, string>()
 
@@ -128,8 +139,9 @@ export async function initApp(): Promise<void> {
   const textarea = document.getElementById('markdown-input') as HTMLTextAreaElement
   const preview = document.getElementById('svg-preview') as HTMLDivElement
   const downloadSvgBtn = document.getElementById('download-svg') as HTMLButtonElement
+  const downloadPngBtn = document.getElementById('download-png') as HTMLButtonElement
 
-  if (!textarea || !preview || !downloadSvgBtn) {
+  if (!textarea || !preview || !downloadSvgBtn || !downloadPngBtn) {
     throw new Error('Required DOM elements not found')
   }
 
@@ -163,12 +175,22 @@ export async function initApp(): Promise<void> {
   downloadSvgBtn.addEventListener('click', () => {
     if (!currentSvg) return
     const blob = new Blob([currentSvg], { type: 'image/svg+xml;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'document.svg'
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadBlob(blob, 'document.svg')
+  })
+
+  downloadPngBtn.addEventListener('click', async () => {
+    if (!currentSvg) return
+    downloadPngBtn.disabled = true
+    downloadPngBtn.textContent = 'Converting...'
+    try {
+      const blob = await svgToPng(currentSvg)
+      downloadBlob(blob, 'document.png')
+    } catch (err) {
+      console.error('PNG conversion failed:', err)
+    } finally {
+      downloadPngBtn.disabled = false
+      downloadPngBtn.textContent = 'PNG'
+    }
   })
 
   // shiki Highlighterを非同期で初期化し、完了後に再レンダリングする

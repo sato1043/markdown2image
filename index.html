@@ -33,7 +33,14 @@
 
     .toolbar {
       display: flex;
+      align-items: center;
       gap: 8px;
+    }
+
+    .toolbar .toolbar-label {
+      font-size: 12px;
+      color: #8b949e;
+      margin-right: 4px;
     }
 
     .toolbar button {
@@ -47,8 +54,13 @@
       transition: background-color 0.15s;
     }
 
-    .toolbar button:hover {
+    .toolbar button:hover:not(:disabled) {
       background-color: #444c56;
+    }
+
+    .toolbar button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .main-container {
@@ -61,9 +73,10 @@
       display: flex;
       flex-direction: column;
       border-right: 1px solid #d0d7de;
+      min-width: 0;
     }
 
-    .editor-pane .pane-label {
+    .pane-label {
       padding: 8px 16px;
       font-size: 12px;
       font-weight: 600;
@@ -72,6 +85,7 @@
       border-bottom: 1px solid #d0d7de;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      flex-shrink: 0;
     }
 
     #markdown-input {
@@ -92,18 +106,8 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      overflow: auto;
-    }
-
-    .preview-pane .pane-label {
-      padding: 8px 16px;
-      font-size: 12px;
-      font-weight: 600;
-      color: #656d76;
-      background-color: #f6f8fa;
-      border-bottom: 1px solid #d0d7de;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      overflow: hidden;
+      min-width: 0;
     }
 
     #svg-preview {
@@ -118,6 +122,24 @@
 
     #svg-preview svg {
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 768px) {
+      .main-container {
+        flex-direction: column;
+      }
+
+      .editor-pane {
+        flex: none;
+        height: 40vh;
+        border-right: none;
+        border-bottom: 1px solid #d0d7de;
+      }
+
+      .preview-pane {
+        flex: 1;
+      }
     }
   </style>
 </head>
@@ -125,7 +147,9 @@
   <header class="app-header">
     <h1>markdown2image</h1>
     <div class="toolbar">
-      <button id="download-svg">SVG Download</button>
+      <span class="toolbar-label">Download:</span>
+      <button id="download-svg">SVG</button>
+      <button id="download-png">PNG</button>
     </div>
   </header>
   <div class="main-container">
