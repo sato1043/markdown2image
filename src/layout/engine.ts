@@ -11,9 +11,14 @@ import {
   listStyle,
   listItemStyle,
   hrStyle,
+  tableStyle,
+  tableCellStyle,
+  imageStyle,
+  footnoteBlockStyle,
   defaultSpanStyle,
   inlineCodeSpanStyle,
   linkSpanStyle,
+  TABLE_CELL_PAD_H,
   DOCUMENT_PADDING,
   CONTENT_WIDTH,
   DOCUMENT_WIDTH,
@@ -46,14 +51,31 @@ export class LayoutEngine {
       children: [],
     }
 
+    // 脚注定義を収集する
+    const footnotes: Array<{ identifier: string; children: RootContent[] }> = []
+
     let cursorY = DOCUMENT_PADDING.top
 
     for (const node of root.children) {
+      if (node.type === 'footnoteDefinition') {
+        footnotes.push({
+          identifier: (node as { identifier: string }).identifier,
+          children: (node as { children: RootContent[] }).children,
+        })
+        continue
+      }
       const child = this.layoutBlock(node, DOCUMENT_PADDING.left, cursorY, CONTENT_WIDTH)
       if (child) {
         docBox.children.push(child)
         cursorY = child.y + child.height + child.style.margin.bottom
       }
+    }
+
+    // 脚注セクションをドキュメント末尾に配置する
+    if (footnotes.length > 0) {
+      const fnBlock = this.layoutFootnotes(footnotes, DOCUMENT_PADDING.left, cursorY, CONTENT_WIDTH)
+      docBox.children.push(fnBlock)
+      cursorY = fnBlock.y + fnBlock.height + fnBlock.style.margin.bottom
     }
 
     docBox.height = cursorY + DOCUMENT_PADDING.bottom
@@ -79,9 +101,12 @@ export class LayoutEngine {
         return this.layoutBlockquote(node, x, y, availableWidth)
       case 'list':
         return this.layoutList(node, x, y, availableWidth)
+      case 'table':
+        return this.layoutTable(node as RootContent & { type: 'table'; align: Array<string | null>; children: Array<{ type: 'tableRow'; children: Array<{ type: 'tableCell'; children: PhrasingContent[] }> }> }, x, y, availableWidth)
       case 'thematicBreak':
         return this.layoutHr(x, y, availableWidth)
       default:
+        // 段落内のimageを処理する（mdastではimageはphrasingContentとして段落内に出現する）
         return null
     }
   }
@@ -353,6 +378,214 @@ export class LayoutEngine {
     }
   }
 
+  /** テーブルをレイアウトする */
+  private layoutTable(
+    node: { type: 'table'; align: Array<string | null>; children: Array<{ type: 'tableRow'; children: Array<{ type: 'tableCell'; children: PhrasingContent[] }> }> },
+    x: number,
+    y: number,
+    availableWidth: number,
+  ): LayoutBox {
+    const style = tableStyle()
+    const baseSpanStyle = defaultSpanStyle()
+    const rows = node.children
+    if (rows.length === 0) {
+      return { type: 'table', x, y, width: availableWidth, height: 0, style, children: [] }
+    }
+
+    const colCount = Math.max(...rows.map(r => r.children.length))
+
+    // 各列の最大コンテンツ幅を計算する
+    const colMaxWidths: number[] = new Array(colCount).fill(0)
+    for (const row of rows) {
+      for (let ci = 0; ci < row.children.length; ci++) {
+        const cell = row.children[ci]
+        const spans = this.extractSpans(cell.children, baseSpanStyle)
+        const textWidth = spans.reduce((sum, s) => sum + this.measurer.measureWidth(s.text, s.style), 0)
+        colMaxWidths[ci] = Math.max(colMaxWidths[ci], textWidth + TABLE_CELL_PAD_H)
+      }
+    }
+
+    // 列幅を利用可能幅に収まるように比例配分する
+    const totalNatural = colMaxWidths.reduce((s, w) => s + w, 0)
+    const colWidths: number[] = totalNatural <= availableWidth
+      ? colMaxWidths
+      : colMaxWidths.map(w => (w / totalNatural) * availableWidth)
+
+    // 行をレイアウトする
+    const children: LayoutBox[] = []
+    let cursorY = y + style.margin.top
+
+    rows.forEach((row, ri) => {
+      const isHeader = ri === 0
+      const rowBox = this.layoutTableRow(row, x, cursorY, colWidths, isHeader, node.align, baseSpanStyle)
+      children.push(rowBox)
+      cursorY = rowBox.y + rowBox.height
+    })
+
+    const totalHeight = cursorY - (y + style.margin.top)
+
+    return {
+      type: 'table',
+      x,
+      y: y + style.margin.top,
+      width: availableWidth,
+      height: totalHeight,
+      style,
+      children,
+    }
+  }
+
+  /** テーブル行をレイアウトする */
+  private layoutTableRow(
+    row: { type: 'tableRow'; children: Array<{ type: 'tableCell'; children: PhrasingContent[] }> },
+    x: number,
+    y: number,
+    colWidths: number[],
+    isHeader: boolean,
+    align: Array<string | null>,
+    baseSpanStyle: SpanStyle,
+  ): LayoutBox {
+    const cellStyle = tableCellStyle(isHeader)
+    const cellSpanStyle: SpanStyle = isHeader
+      ? { ...baseSpanStyle, bold: true }
+      : baseSpanStyle
+
+    const cells: LayoutBox[] = []
+    let maxCellHeight = 0
+    let cellX = x
+
+    for (let ci = 0; ci < colWidths.length; ci++) {
+      const cellNode = row.children[ci]
+      const spans = cellNode ? this.extractSpans(cellNode.children, cellSpanStyle) : []
+      const contentWidth = colWidths[ci] - TABLE_CELL_PAD_H
+      const lines = this.measurer.wrapSpans(spans, contentWidth, cellStyle.lineHeight)
+      const textHeight = lines.reduce((sum, line) => sum + line.height, 0)
+      const cellHeight = textHeight + cellStyle.padding.top + cellStyle.padding.bottom
+
+      if (cellHeight > maxCellHeight) {
+        maxCellHeight = cellHeight
+      }
+
+      cells.push({
+        type: 'table-cell',
+        x: cellX,
+        y,
+        width: colWidths[ci],
+        height: cellHeight,
+        style: cellStyle,
+        children: [],
+        lines,
+      })
+
+      cellX += colWidths[ci]
+    }
+
+    // 全セルの高さを行の最大高さに揃える
+    for (const cell of cells) {
+      cell.height = maxCellHeight
+    }
+
+    return {
+      type: 'table-row',
+      x,
+      y,
+      width: cellX - x,
+      height: maxCellHeight,
+      style: tableCellStyle(isHeader),
+      children: cells,
+    }
+  }
+
+  /** 画像をレイアウトする（段落内のimageノード用） */
+  layoutImage(
+    src: string,
+    alt: string,
+    x: number,
+    y: number,
+    availableWidth: number,
+  ): LayoutBox {
+    const style = imageStyle()
+    // 画像の実サイズは不明のため、固定高さのプレースホルダーとする
+    const placeholderHeight = 200
+
+    return {
+      type: 'image',
+      x,
+      y: y + style.margin.top,
+      width: availableWidth,
+      height: placeholderHeight,
+      style,
+      children: [],
+      src,
+      alt,
+    }
+  }
+
+  /** 脚注セクションをレイアウトする */
+  private layoutFootnotes(
+    footnotes: Array<{ identifier: string; children: RootContent[] }>,
+    x: number,
+    y: number,
+    availableWidth: number,
+  ): LayoutBox {
+    const style = footnoteBlockStyle()
+    const baseSpanStyle: SpanStyle = {
+      ...defaultSpanStyle(),
+      fontSize: style.fontSize,
+      color: style.color,
+    }
+
+    const children: LayoutBox[] = []
+    let cursorY = y + style.margin.top + style.padding.top
+
+    for (const fn of footnotes) {
+      // 脚注テキストを "1. 内容" の形式でレイアウトする
+      const prefix: TextSpan = {
+        text: `${fn.identifier}. `,
+        style: { ...baseSpanStyle, bold: true },
+      }
+      // 脚注の子要素から段落テキストを抽出する
+      const contentSpans: TextSpan[] = []
+      for (const child of fn.children) {
+        if (child.type === 'paragraph') {
+          contentSpans.push(...this.extractSpans(
+            (child as { children: PhrasingContent[] }).children,
+            baseSpanStyle,
+          ))
+        }
+      }
+
+      const allSpans = [prefix, ...contentSpans]
+      const lines = this.measurer.wrapSpans(allSpans, availableWidth, style.lineHeight)
+      const textHeight = lines.reduce((sum, line) => sum + line.height, 0)
+
+      children.push({
+        type: 'footnote',
+        x,
+        y: cursorY,
+        width: availableWidth,
+        height: textHeight,
+        style: { ...style, margin: { top: 0, right: 0, bottom: 4, left: 0 } },
+        children: [],
+        lines,
+      })
+
+      cursorY += textHeight + 4
+    }
+
+    const totalHeight = cursorY - (y + style.margin.top)
+
+    return {
+      type: 'footnote',
+      x,
+      y: y + style.margin.top,
+      width: availableWidth,
+      height: totalHeight,
+      style,
+      children,
+    }
+  }
+
   /** PhrasingContent配列からTextSpan配列を抽出する */
   private extractSpans(nodes: PhrasingContent[], baseStyle: SpanStyle): TextSpan[] {
     const spans: TextSpan[] = []
@@ -391,6 +624,20 @@ export class LayoutEngine {
           spans.push(
             ...this.extractSpans(node.children, { ...baseStyle, strikethrough: true }),
           )
+          break
+        case 'image':
+          // インライン画像はaltテキストで表示する
+          spans.push({
+            text: `[${(node as { alt?: string }).alt ?? 'image'}]`,
+            style: { ...baseStyle, color: '#656d76' },
+          })
+          break
+        case 'footnoteReference':
+          // 脚注参照は上付き数字で表示する
+          spans.push({
+            text: `[${(node as { identifier: string }).identifier}]`,
+            style: { ...baseStyle, fontSize: baseStyle.fontSize * 0.75, color: '#0969da' },
+          })
           break
         default:
           // 未対応のインライン要素はスキップする

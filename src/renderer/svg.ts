@@ -34,6 +34,16 @@ export class SvgRenderer implements Renderer {
         return this.renderList(box)
       case 'list-item':
         return this.renderListItem(box)
+      case 'table':
+        return this.renderTable(box)
+      case 'table-row':
+        return this.renderTableRow(box)
+      case 'table-cell':
+        return this.renderTableCell(box)
+      case 'image':
+        return this.renderImage(box)
+      case 'footnote':
+        return this.renderFootnote(box)
       case 'hr':
         return this.renderHr(box)
       default:
@@ -187,6 +197,120 @@ export class SvgRenderer implements Renderer {
     // 子要素
     for (const child of box.children) {
       elements.push(this.renderBox(child))
+    }
+
+    return elements.join('\n')
+  }
+
+  /** テーブルをSVGに変換する */
+  private renderTable(box: LayoutBox): string {
+    const elements: string[] = []
+
+    // 外枠
+    elements.push(
+      `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="none" stroke="${box.style.borderColor ?? '#d0d7de'}" stroke-width="1" />`,
+    )
+
+    // 行を描画する
+    for (const row of box.children) {
+      elements.push(this.renderBox(row))
+    }
+
+    return elements.join('\n')
+  }
+
+  /** テーブル行をSVGに変換する */
+  private renderTableRow(box: LayoutBox): string {
+    const elements: string[] = []
+    const borderColor = box.style.borderColor ?? '#d0d7de'
+
+    // 行の下罫線
+    elements.push(
+      `<line x1="${box.x}" y1="${box.y + box.height}" x2="${box.x + box.width}" y2="${box.y + box.height}" stroke="${borderColor}" stroke-width="1" />`,
+    )
+
+    // セルを描画する
+    for (const cell of box.children) {
+      elements.push(this.renderBox(cell))
+    }
+
+    return elements.join('\n')
+  }
+
+  /** テーブルセルをSVGに変換する */
+  private renderTableCell(box: LayoutBox): string {
+    const elements: string[] = []
+    const borderColor = box.style.borderColor ?? '#d0d7de'
+
+    // ヘッダーの背景
+    if (box.style.backgroundColor) {
+      elements.push(
+        `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="${box.style.backgroundColor}" />`,
+      )
+    }
+
+    // 右罫線
+    elements.push(
+      `<line x1="${box.x + box.width}" y1="${box.y}" x2="${box.x + box.width}" y2="${box.y + box.height}" stroke="${borderColor}" stroke-width="1" />`,
+    )
+
+    // セル内テキスト
+    if (box.lines) {
+      let lineY = box.y + box.style.padding.top
+      for (const line of box.lines) {
+        elements.push(this.renderTextLine(line, box.x + box.style.padding.left, lineY))
+        lineY += line.height
+      }
+    }
+
+    return elements.join('\n')
+  }
+
+  /** 画像プレースホルダーをSVGに変換する */
+  private renderImage(box: LayoutBox): string {
+    const elements: string[] = []
+
+    if (box.src) {
+      // SVGのimage要素で画像を表示する
+      elements.push(
+        `<image x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" href="${escapeXml(box.src)}" preserveAspectRatio="xMidYMid meet" />`,
+      )
+    }
+
+    // altテキストをフォールバックで表示する
+    if (box.alt) {
+      elements.push(
+        `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1" rx="4" opacity="${box.src ? '0' : '1'}" />`,
+      )
+      if (!box.src) {
+        elements.push(
+          `<text x="${box.x + box.width / 2}" y="${box.y + box.height / 2}" text-anchor="middle" dominant-baseline="middle" fill="#656d76" font-size="14">${escapeXml(box.alt)}</text>`,
+        )
+      }
+    }
+
+    return elements.join('\n')
+  }
+
+  /** 脚注セクションをSVGに変換する */
+  private renderFootnote(box: LayoutBox): string {
+    const elements: string[] = []
+
+    // 脚注コンテナ（親）の場合は区切り線を描画する
+    if (box.children.length > 0) {
+      elements.push(
+        `<line x1="${box.x}" y1="${box.y}" x2="${box.x + box.width * 0.3}" y2="${box.y}" stroke="${box.style.borderColor ?? '#d0d7de'}" stroke-width="1" />`,
+      )
+      for (const child of box.children) {
+        elements.push(this.renderBox(child))
+      }
+    } else if (box.lines) {
+      // 個別の脚注項目はテキストブロックとして描画する
+      let lineY = box.y
+      for (const line of box.lines) {
+        elements.push(this.renderTextLine(line, box.x, lineY))
+        lineY += line.height
+      }
     }
 
     return elements.join('\n')

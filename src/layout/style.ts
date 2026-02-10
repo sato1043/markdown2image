@@ -13,6 +13,9 @@ const CODE_BORDER_COLOR = '#d0d7de'
 const BLOCKQUOTE_BORDER_COLOR = '#d0d7de'
 const BLOCKQUOTE_COLOR = '#656d76'
 const HR_COLOR = '#d0d7de'
+const TABLE_BORDER_COLOR = '#d0d7de'
+const TABLE_HEADER_BG = '#f6f8fa'
+const FOOTNOTE_COLOR = '#656d76'
 
 /** ドキュメント全体の幅 (px) */
 export const DOCUMENT_WIDTH = 800
@@ -167,5 +170,61 @@ export function inlineCodeSpanStyle(): Partial<SpanStyle> {
 export function linkSpanStyle(): Partial<SpanStyle> {
   return {
     color: LINK_COLOR,
+  }
+}
+
+/** テーブルのスタイル */
+export function tableStyle(): BoxStyle {
+  return {
+    fontFamily: BASE_FONT_FAMILY,
+    fontSize: BASE_FONT_SIZE,
+    lineHeight: BASE_LINE_HEIGHT,
+    color: BASE_COLOR,
+    borderColor: TABLE_BORDER_COLOR,
+    padding: ZERO_SPACING,
+    margin: { top: 0, right: 0, bottom: 16, left: 0 },
+  }
+}
+
+/** テーブルセルのスタイル */
+export function tableCellStyle(isHeader: boolean): BoxStyle {
+  return {
+    fontFamily: BASE_FONT_FAMILY,
+    fontSize: BASE_FONT_SIZE,
+    lineHeight: BASE_LINE_HEIGHT,
+    color: BASE_COLOR,
+    backgroundColor: isHeader ? TABLE_HEADER_BG : undefined,
+    borderColor: TABLE_BORDER_COLOR,
+    padding: { top: 6, right: 12, bottom: 6, left: 12 },
+    margin: ZERO_SPACING,
+  }
+}
+
+/** テーブルセルのパディング水平合計 */
+export const TABLE_CELL_PAD_H = 24
+
+/** 画像のスタイル */
+export function imageStyle(): BoxStyle {
+  return {
+    fontFamily: BASE_FONT_FAMILY,
+    fontSize: BASE_FONT_SIZE,
+    lineHeight: BASE_LINE_HEIGHT,
+    color: BASE_COLOR,
+    borderColor: TABLE_BORDER_COLOR,
+    padding: ZERO_SPACING,
+    margin: { top: 0, right: 0, bottom: 16, left: 0 },
+  }
+}
+
+/** 脚注ブロックのスタイル */
+export function footnoteBlockStyle(): BoxStyle {
+  return {
+    fontFamily: BASE_FONT_FAMILY,
+    fontSize: 13,
+    lineHeight: 1.5,
+    color: FOOTNOTE_COLOR,
+    borderColor: TABLE_BORDER_COLOR,
+    padding: { top: 16, right: 0, bottom: 0, left: 0 },
+    margin: { top: 24, right: 0, bottom: 0, left: 0 },
   }
 }
