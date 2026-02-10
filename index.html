@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>markdown2image</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+      background-color: #f5f5f5;
+      color: #1a1a1a;
+    }
+
+    .app-header {
+      background-color: #24292f;
+      color: #ffffff;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .app-header h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+    }
+
+    .toolbar button {
+      padding: 6px 16px;
+      border: 1px solid #444c56;
+      border-radius: 6px;
+      background-color: #2d333b;
+      color: #ffffff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.15s;
+    }
+
+    .toolbar button:hover {
+      background-color: #444c56;
+    }
+
+    .main-container {
+      display: flex;
+      height: calc(100vh - 48px);
+    }
+
+    .editor-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #d0d7de;
+    }
+
+    .editor-pane .pane-label {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #656d76;
+      background-color: #f6f8fa;
+      border-bottom: 1px solid #d0d7de;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    #markdown-input {
+      flex: 1;
+      padding: 16px;
+      border: none;
+      outline: none;
+      resize: none;
+      font-family: "Source Code Pro", "Consolas", "Menlo", monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      background-color: #ffffff;
+      color: #1a1a1a;
+      tab-size: 2;
+    }
+
+    .preview-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: auto;
+    }
+
+    .preview-pane .pane-label {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #656d76;
+      background-color: #f6f8fa;
+      border-bottom: 1px solid #d0d7de;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    #svg-preview {
+      flex: 1;
+      padding: 16px;
+      overflow: auto;
+      background-color: #e8e8e8;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    #svg-preview svg {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <h1>markdown2image</h1>
+    <div class="toolbar">
+      <button id="download-svg">SVG Download</button>
+    </div>
+  </header>
+  <div class="main-container">
+    <div class="editor-pane">
+      <div class="pane-label">Markdown</div>
+      <textarea id="markdown-input" spellcheck="false"></textarea>
+    </div>
+    <div class="preview-pane">
+      <div class="pane-label">Preview</div>
+      <div id="svg-preview"></div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
