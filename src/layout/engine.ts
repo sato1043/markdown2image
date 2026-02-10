@@ -1,4 +1,5 @@
 import type { Root, RootContent, PhrasingContent } from 'mdast'
+import type { HighlighterGeneric, BundledLanguage, BundledTheme } from 'shiki'
 import type { LayoutBox, TextSpan, SpanStyle, HeadingDepth } from '../types/layout'
 import { TextMeasurer } from './measure'
 import {
@@ -21,9 +22,15 @@ import {
 /** mdast AST → LayoutBoxツリーを生成する */
 export class LayoutEngine {
   private readonly measurer: TextMeasurer
+  private highlighter: HighlighterGeneric<BundledLanguage, BundledTheme> | null = null
 
   constructor() {
     this.measurer = new TextMeasurer()
+  }
+
+  /** shiki Highlighterを設定する */
+  setHighlighter(highlighter: HighlighterGeneric<BundledLanguage, BundledTheme>): void {
+    this.highlighter = highlighter
   }
 
   /** ルートノードからレイアウトツリーを生成する */
@@ -145,23 +152,17 @@ export class LayoutEngine {
     availableWidth: number,
   ): LayoutBox {
     const style = codeBlockStyle()
-    const codeSpanStyle: SpanStyle = {
+    const baseCodeStyle: SpanStyle = {
       ...defaultSpanStyle(),
       fontFamily: style.fontFamily,
       fontSize: style.fontSize,
       code: true,
     }
 
-    const codeLines = node.value.split('\n')
-    const lineH = this.measurer.lineHeight(codeSpanStyle, style.lineHeight)
-    const textHeight = codeLines.length * lineH
+    const lineH = this.measurer.lineHeight(baseCodeStyle, style.lineHeight)
+    const lines = this.tokenizeCode(node.value, node.lang ?? null, baseCodeStyle, lineH)
+    const textHeight = lines.length * lineH
     const totalHeight = textHeight + style.padding.top + style.padding.bottom
-
-    const lines = codeLines.map(line => ({
-      spans: [{ text: line, style: codeSpanStyle }],
-      width: this.measurer.measureWidth(line, codeSpanStyle),
-      height: lineH,
-    }))
 
     return {
       type: 'code-block',
@@ -175,6 +176,58 @@ export class LayoutEngine {
       language: node.lang ?? undefined,
       code: node.value,
     }
+  }
+
+  /** コードをトークナイズしてTextLine配列を返す */
+  private tokenizeCode(
+    code: string,
+    lang: string | null,
+    baseStyle: SpanStyle,
+    lineH: number,
+  ): { spans: TextSpan[]; width: number; height: number }[] {
+    // shikiが利用可能で言語が指定されている場合はハイライトする
+    if (this.highlighter && lang) {
+      try {
+        const loadedLangs = this.highlighter.getLoadedLanguages()
+        if (loadedLangs.includes(lang)) {
+          const tokenLines = this.highlighter.codeToTokensBase(code, {
+            lang: lang as BundledLanguage,
+            theme: 'github-light',
+          })
+          return tokenLines.map(tokenLine => {
+            const spans: TextSpan[] = tokenLine.map(token => {
+              const span: TextSpan = {
+                text: token.content,
+                style: {
+                  ...baseStyle,
+                  color: token.color ?? baseStyle.color,
+                  bold: token.fontStyle === 1 || baseStyle.bold,
+                  italic: token.fontStyle === 2 || baseStyle.italic,
+                },
+              }
+              span.width = this.measurer.measureWidth(span.text, span.style)
+              return span
+            })
+            const width = spans.reduce((sum, s) => sum + (s.width ?? 0), 0)
+            return { spans, width, height: lineH }
+          })
+        }
+      } catch {
+        // ハイライト失敗時はフォールバックする
+      }
+    }
+
+    // フォールバック: 単色表示
+    const codeLines = code.split('\n')
+    return codeLines.map(line => {
+      const span: TextSpan = { text: line, style: baseStyle }
+      span.width = this.measurer.measureWidth(line, baseStyle)
+      return {
+        spans: [span],
+        width: span.width ?? 0,
+        height: lineH,
+      }
+    })
   }
 
   /** 引用ブロックをレイアウトする */

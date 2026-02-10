@@ -131,13 +131,16 @@ export class SvgRenderer implements Renderer {
     // コード行
     let lineY = box.y + box.style.padding.top
     for (const line of box.lines) {
-      if (line.spans.length > 0 && line.spans[0].text.length > 0) {
-        const span = line.spans[0]
-        const attrs = this.spanAttributes(span.style)
-        const baselineY = lineY + line.height * 0.75
-        elements.push(
-          `<text x="${box.x + box.style.padding.left}" y="${baselineY}" ${attrs}>${escapeXml(span.text)}</text>`,
-        )
+      const baselineY = lineY + line.height * 0.75
+      let cursorX = box.x + box.style.padding.left
+      for (const span of line.spans) {
+        if (span.text.length > 0) {
+          const attrs = this.spanAttributes(span.style)
+          elements.push(
+            `<text x="${cursorX}" y="${baselineY}" ${attrs}>${escapeXml(span.text)}</text>`,
+          )
+        }
+        cursorX += span.width ?? 0
       }
       lineY += line.height
     }
