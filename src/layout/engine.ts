@@ -151,6 +151,12 @@ export class LayoutEngine {
     y: number,
     availableWidth: number,
   ): LayoutBox {
+    // 段落が画像のみで構成される場合はブロック画像としてレイアウトする
+    if (node.children.length === 1 && node.children[0].type === 'image') {
+      const img = node.children[0] as { type: 'image'; url: string; alt?: string }
+      return this.layoutImage(img.url, img.alt ?? '', x, y, availableWidth)
+    }
+
     const style = paragraphStyle()
     const baseSpanStyle = defaultSpanStyle()
     const spans = this.extractSpans(node.children, baseSpanStyle)
