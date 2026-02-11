@@ -60,26 +60,27 @@
 
 ```
 src/
-  types/
-    layout.ts       # LayoutBox, TextSpan, BoxStyle等の型定義
-    renderer.ts     # Renderer インターフェース
-  parser/
-    markdown.ts     # Markdown → mdast パース
-  layout/
-    engine.ts       # レイアウトエンジン本体 (shiki統合含む)
-    measure.ts      # テキスト計測（Canvas measureText）
-    style.ts        # 固定スタイル定義
-  renderer/
-    svg.ts          # SVGレンダラー
-    png.ts          # SVG → Canvas → PNG変換
+  lib/markdown2image/     # コア変換ライブラリ（コピーで再利用可能）
+    index.ts              # 公開APIファサード + 依存パッケージ情報
+    image-resolver.ts     # 画像URL→Base64 data URI解決
+    types/
+      layout.ts           # LayoutBox, TextSpan, BoxStyle等の型定義
+      renderer.ts         # Renderer / CodeHighlighter インターフェース
+    parser/
+      markdown.ts         # Markdown → mdast パース
+    layout/
+      engine.ts           # レイアウトエンジン本体
+      measure.ts          # テキスト計測（Canvas measureText）
+      style.ts            # 固定スタイル定義
+    renderer/
+      svg.ts              # SVGレンダラー
+      png.ts              # SVG → Canvas → PNG変換
   ui/
-    app.ts          # UIロジック (画像解決・デバウンス含む)
-  main.ts           # エントリポイント
-index.html          # HTML + CSS
+    app.ts                # UIロジック (デバウンス・ダウンロード)
+  main.ts                 # エントリポイント
+index.html                # HTML + CSS
 public/
-  sample.svg        # サンプル画像
-docs/
-  DESIGN.md         # 本ドキュメント
+  sample.svg              # サンプル画像
 ```
 
 ### 2.3 データフロー
@@ -189,13 +190,24 @@ interface Renderer {
 
 ## 4. 技術スタック
 
-| 用途 | ライブラリ | バージョン |
-|------|-----------|-----------|
-| Markdownパース | unified + remark-parse | unified 11.x, remark-parse 11.x |
-| GFM拡張 (テーブル・脚注・タスクリスト) | remark-gfm | 4.x |
-| シンタックスハイライト | shiki | 最新 |
-| ビルド | Vite | 7.x |
-| 言語 | TypeScript | 5.x |
+| 用途 | ライブラリ | バージョン | 備考 |
+|------|-----------|-----------|------|
+| Markdownパース | unified + remark-parse | unified 9.x, remark-parse 9.x | CJS対応版 |
+| GFM拡張 (テーブル・タスクリスト) | remark-gfm | 1.x | CJS対応版 (micromark v2) |
+| 脚注 | LayoutEngine自前処理 | — | definition/linkReference ノードから検出 |
+| シンタックスハイライト | CodeHighlighterインターフェース | — | shikiバージョン非依存 |
+| ビルド | Vite | 7.x | ウェブアプリ側 |
+| 言語 | TypeScript | 5.x | |
+
+### 4.1 CJS対応について
+
+unified v10+ / remark-gfm v3+ / shiki v1+ は ESM only のため CJS プロジェクトで require() できない。
+コア変換ライブラリ (src/lib/markdown2image/) は CJS 対応バージョンの依存パッケージを使用し、
+ESM / CJS どちらのプロジェクトにもコピーして利用できるようにしている。
+
+shiki については独自の CodeHighlighter インターフェースで抽象化し、
+ライブラリ自体が shiki パッケージに実行時依存しない設計とした。
+呼び出し側が好みのバージョン（ESM: v1+, CJS: v0.x）を初期化して注入する。
 
 ## 5. 対応要素
 

@@ -1,6 +1,6 @@
 import type { Root, RootContent, PhrasingContent } from 'mdast'
-import type { HighlighterGeneric, BundledLanguage, BundledTheme } from 'shiki'
 import type { LayoutBox, TextSpan, SpanStyle, HeadingDepth } from '../types/layout'
+import type { CodeHighlighter } from '../types/renderer'
 import { TextMeasurer } from './measure'
 import {
   documentStyle,
@@ -27,14 +27,14 @@ import {
 /** mdast AST → LayoutBoxツリーを生成する */
 export class LayoutEngine {
   private readonly measurer: TextMeasurer
-  private highlighter: HighlighterGeneric<BundledLanguage, BundledTheme> | null = null
+  private highlighter: CodeHighlighter | null = null
 
   constructor() {
     this.measurer = new TextMeasurer()
   }
 
-  /** shiki Highlighterを設定する */
-  setHighlighter(highlighter: HighlighterGeneric<BundledLanguage, BundledTheme>): void {
+  /** コードハイライターを設定する（CodeHighlighterインターフェース準拠） */
+  setHighlighter(highlighter: CodeHighlighter): void {
     this.highlighter = highlighter
   }
 
@@ -52,17 +52,23 @@ export class LayoutEngine {
     }
 
     // 脚注定義を収集する
-    const footnotes: Array<{ identifier: string; children: RootContent[] }> = []
+    // remark-parse v9 + remark-gfm v1 では [^1]: 内容 が
+    // definition ノード (identifier: "^1", url: "内容") として解析される
+    const footnotes: Array<{ identifier: string; text: string }> = []
 
     let cursorY = DOCUMENT_PADDING.top
 
     for (const node of root.children) {
-      if (node.type === 'footnoteDefinition') {
-        footnotes.push({
-          identifier: (node as { identifier: string }).identifier,
-          children: (node as { children: RootContent[] }).children,
-        })
-        continue
+      // ^プレフィックス付きの definition ノードを脚注定義として扱う
+      if (node.type === 'definition') {
+        const def = node as { identifier: string; url: string }
+        if (def.identifier.startsWith('^')) {
+          footnotes.push({
+            identifier: def.identifier.slice(1),
+            text: def.url,
+          })
+          continue
+        }
       }
       const child = this.layoutBlock(node, DOCUMENT_PADDING.left, cursorY, CONTENT_WIDTH)
       if (child) {
@@ -216,15 +222,12 @@ export class LayoutEngine {
     baseStyle: SpanStyle,
     lineH: number,
   ): { spans: TextSpan[]; width: number; height: number }[] {
-    // shikiが利用可能で言語が指定されている場合はハイライトする
+    // ハイライターが利用可能で言語が指定されている場合はハイライトする
     if (this.highlighter && lang) {
       try {
         const loadedLangs = this.highlighter.getLoadedLanguages()
         if (loadedLangs.includes(lang)) {
-          const tokenLines = this.highlighter.codeToTokensBase(code, {
-            lang: lang as BundledLanguage,
-            theme: 'github-light',
-          })
+          const tokenLines = this.highlighter.tokenize(code, lang, 'github-light')
           return tokenLines.map(tokenLine => {
             const spans: TextSpan[] = tokenLine.map(token => {
               const span: TextSpan = {
@@ -529,7 +532,7 @@ export class LayoutEngine {
 
   /** 脚注セクションをレイアウトする */
   private layoutFootnotes(
-    footnotes: Array<{ identifier: string; children: RootContent[] }>,
+    footnotes: Array<{ identifier: string; text: string }>,
     x: number,
     y: number,
     availableWidth: number,
@@ -550,18 +553,13 @@ export class LayoutEngine {
         text: `${fn.identifier}. `,
         style: { ...baseSpanStyle, bold: true },
       }
-      // 脚注の子要素から段落テキストを抽出する
-      const contentSpans: TextSpan[] = []
-      for (const child of fn.children) {
-        if (child.type === 'paragraph') {
-          contentSpans.push(...this.extractSpans(
-            (child as { children: PhrasingContent[] }).children,
-            baseSpanStyle,
-          ))
-        }
+      // remark-parse v9 では脚注定義の内容は definition.url に格納される
+      const contentSpan: TextSpan = {
+        text: fn.text,
+        style: baseSpanStyle,
       }
 
-      const allSpans = [prefix, ...contentSpans]
+      const allSpans = [prefix, contentSpan]
       const lines = this.measurer.wrapSpans(allSpans, availableWidth, style.lineHeight)
       const textHeight = lines.reduce((sum, line) => sum + line.height, 0)
 
@@ -638,8 +636,25 @@ export class LayoutEngine {
             style: { ...baseStyle, color: '#656d76' },
           })
           break
+        case 'linkReference': {
+          // remark-parse v9 + remark-gfm v1 では [^1] が
+          // linkReference (identifier: "^1") として解析される
+          const ref = node as { identifier: string; children: PhrasingContent[] }
+          if (ref.identifier.startsWith('^')) {
+            // 脚注参照は上付き数字で表示する
+            const fnId = ref.identifier.slice(1)
+            spans.push({
+              text: `[${fnId}]`,
+              style: { ...baseStyle, fontSize: baseStyle.fontSize * 0.75, color: '#0969da' },
+            })
+          } else {
+            // 通常のリンク参照はテキストとして表示する
+            spans.push(...this.extractSpans(ref.children, baseStyle))
+          }
+          break
+        }
         case 'footnoteReference':
-          // 脚注参照は上付き数字で表示する
+          // remark-footnotes 使用時のフォールバック
           spans.push({
             text: `[${(node as { identifier: string }).identifier}]`,
             style: { ...baseStyle, fontSize: baseStyle.fontSize * 0.75, color: '#0969da' },

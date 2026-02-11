@@ -17,9 +17,9 @@
     "vite": "^7.3.1"
   },
   "dependencies": {
-    "remark-gfm": "^4.0.1",
-    "remark-parse": "^11.0.0",
+    "remark-gfm": "^1.0.0",
+    "remark-parse": "^9.0.0",
     "shiki": "^3.22.0",
-    "unified": "^11.0.5"
+    "unified": "^9.2.2"
   }
 }

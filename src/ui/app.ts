@@ -1,4 +1,5 @@
 import { createHighlighter } from 'shiki'
+import type { BundledLanguage, BundledTheme } from 'shiki'
 import {
   parseMarkdown,
   LayoutEngine,
@@ -6,6 +7,7 @@ import {
   svgToPng,
   resolveImages,
 } from '../lib/markdown2image'
+import type { CodeHighlighter } from '../lib/markdown2image'
 
 const SAMPLE_MARKDOWN = `# markdown2image
 
@@ -155,11 +157,19 @@ export async function initApp(): Promise<void> {
     }
   })
 
-  // shiki Highlighterを非同期で初期化し、完了後に再レンダリングする
-  const highlighter = await createHighlighter({
+  // shiki Highlighterを非同期で初期化し、CodeHighlighterアダプタ経由で設定する
+  const shikiHighlighter = await createHighlighter({
     themes: ['github-light'],
     langs: [...SUPPORTED_LANGS],
   })
-  engine.setHighlighter(highlighter)
+  const adapter: CodeHighlighter = {
+    getLoadedLanguages: () => shikiHighlighter.getLoadedLanguages(),
+    tokenize: (code, lang, theme) =>
+      shikiHighlighter.codeToTokensBase(code, {
+        lang: lang as BundledLanguage,
+        theme: theme as BundledTheme,
+      }),
+  }
+  engine.setHighlighter(adapter)
   await render()
 }
