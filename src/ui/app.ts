@@ -1,12 +1,6 @@
 import { createHighlighter } from 'shiki'
 import type { BundledLanguage, BundledTheme } from 'shiki'
-import {
-  parseMarkdown,
-  LayoutEngine,
-  SvgRenderer,
-  svgToPng,
-  resolveImages,
-} from '../lib/markdown2image'
+import { markdownToSvg, svgToPng } from '../lib/markdown2image'
 import type { CodeHighlighter } from '../lib/markdown2image'
 
 const SAMPLE_MARKDOWN = `# markdown2image
@@ -64,7 +58,7 @@ def greet(name: str) -> str:
 `
 
 /** shikiで対応する言語リスト */
-const SUPPORTED_LANGS = [
+const SUPPORTED_LANGS: BundledLanguage[] = [
   'typescript',
   'javascript',
   'python',
@@ -87,7 +81,7 @@ const SUPPORTED_LANGS = [
   'php',
   'swift',
   'kotlin',
-] as const
+]
 
 /** Blobをファイルとしてダウンロードする */
 function downloadBlob(blob: Blob, filename: string): void {
@@ -109,17 +103,13 @@ export async function initApp(): Promise<void> {
     throw new Error('Required DOM elements not found')
   }
 
-  const engine = new LayoutEngine()
-  const renderer = new SvgRenderer()
+  let highlighter: CodeHighlighter | undefined
   let currentSvg = ''
   let renderTimer: ReturnType<typeof setTimeout> | null = null
 
   async function render(): Promise<void> {
     const markdown = textarea.value
-    const ast = parseMarkdown(markdown)
-    const layout = engine.layout(ast)
-    await resolveImages(layout)
-    currentSvg = renderer.render(layout)
+    currentSvg = await markdownToSvg(markdown, { highlighter })
     preview.innerHTML = currentSvg
   }
 
@@ -158,9 +148,10 @@ export async function initApp(): Promise<void> {
   })
 
   // shiki Highlighterを非同期で初期化し、CodeHighlighterアダプタ経由で設定する
+  // noinspection TypeScriptValidateTypes — WebStorm が BundledHighlighterOptions の StringLiteralUnion<T> を解決できない (tsc は pass)
   const shikiHighlighter = await createHighlighter({
-    themes: ['github-light'],
-    langs: [...SUPPORTED_LANGS],
+    themes: ['github-light'] as BundledTheme[],
+    langs: SUPPORTED_LANGS,
   })
   const adapter: CodeHighlighter = {
     getLoadedLanguages: () => shikiHighlighter.getLoadedLanguages(),
@@ -170,6 +161,6 @@ export async function initApp(): Promise<void> {
         theme: theme as BundledTheme,
       }),
   }
-  engine.setHighlighter(adapter)
+  highlighter = adapter
   await render()
 }

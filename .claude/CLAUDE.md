@@ -85,6 +85,9 @@ public/
 
 ### 2.3 データフロー
 
+統合関数 `markdownToSvg(markdown, options?)` / `markdownToPng(markdown, options?)` が
+ステップ 2〜5 を内部で実行する。個別クラスの直接利用も可能である。
+
 1. ユーザーがテキストエリアにMarkdownを入力する（200msデバウンス）
 2. パーサーがMarkdownをmdast ASTに変換する
 3. レイアウトエンジンがASTを走査しLayoutBoxツリーを生成する
@@ -256,7 +259,7 @@ TypeScript, JavaScript, Python, Rust, Go, Java, C, C++, C#, HTML, CSS, JSON, YAM
 
 - テストフレームワーク: Jest + ts-jest（Node.js環境）
 - テスト対象: `src/lib/markdown2image/` コア変換ライブラリ（png.ts を除く）
-- テスト数: 6スイート / 144テスト
+- テスト数: 7スイート / 152テスト
 - カバレッジ: Stmts 96.81% / Funcs 98.76% / Lines 97.68%
 - 詳細: [./memories/TESTING.md](./memories/TESTING.md)
 

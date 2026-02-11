@@ -54,9 +54,10 @@ src/lib/markdown2image/
     engine.test.ts              # LayoutEngine            (49テスト)
     svg-renderer.test.ts        # SvgRenderer             (18テスト)
     image-resolver.test.ts      # fetchAsDataUri 等       (9テスト)
+    integration.test.ts         # markdownToSvg/Png統合   (8テスト)
 ```
 
-合計: 6スイート / 144テスト
+合計: 7スイート / 152テスト
 
 ### テスト対象外
 
@@ -93,6 +94,12 @@ src/lib/markdown2image/
 - **対象**: `SvgRenderer` クラス
 - **モック**: 不要（LayoutBoxを手動構築して入力）
 - **検証内容**: SVGルートタグ、背景矩形、テキスト描画（bold/italic/link下線/取り消し線/インラインコード背景）、コードブロック、引用、リスト、テーブル、画像（src有無でのフォールバック）、水平線、脚注、XMLエスケープ
+
+### integration.test.ts
+
+- **対象**: `markdownToSvg`, `markdownToPng` 統合関数
+- **モック**: Canvas 2D API（共有モック）、`resolveImages`（fetch依存回避）、`svgToPng`（ブラウザAPI依存回避）
+- **検証内容**: SVG文字列の返却、オプションなし動作、highlighterオプション反映、空文字列処理、複数ブロック要素処理、markdownToPngのBlob返却とsvgToPng経由確認
 
 ### image-resolver.test.ts
 

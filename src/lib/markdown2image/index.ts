@@ -51,6 +51,17 @@
  * - "module": "CommonJS" / "ESNext" / "Node16" いずれも可
  * - "moduleResolution": "node" / "bundler" / "node16" いずれも可
  * - "lib": ["ES2022", "DOM"] — Canvas API / FileReader API を使用するため
+ * - "strict": true 推奨
+ * - "esModuleInterop": true — unified 等 CJS パッケージの default import に必要
+ * - "isolatedModules": true — Vite 等のバンドラーを使う場合に必要
+ *
+ * ### skipLibCheck について
+ *
+ * "skipLibCheck": true は使用しない。
+ * shiki 等の依存パッケージの型定義（.d.mts）も含めて型チェックを行う。
+ * WebStorm は shiki の BundledHighlighterOptions 内の StringLiteralUnion<T> 型を
+ * 正しく解決できない既知の問題があるため、呼び出し側で
+ * `// noinspection TypeScriptValidateTypes` による抑制が必要な場合がある。
  *
  * ## ブラウザ API 依存
  *
@@ -62,32 +73,23 @@
  * ## 基本的な使い方
  *
  * ```typescript
- * import {
- *   parseMarkdown,
- *   LayoutEngine,
- *   SvgRenderer,
- *   resolveImages,
- *   svgToPng,
- * } from './lib/markdown2image'
+ * import { markdownToSvg, markdownToPng } from './lib/markdown2image'
  *
- * // 1. Markdown → AST
- * const ast = parseMarkdown('# Hello\n\nworld')
+ * // Markdown → SVG 文字列
+ * const svg = await markdownToSvg('# Hello\n\nworld')
  *
- * // 2. AST → LayoutBox（オプション: シンタックスハイライト）
- * const engine = new LayoutEngine()
- * // engine.setHighlighter(highlighter) // CodeHighlighter インターフェース準拠のオブジェクト
- * const layout = engine.layout(ast)
+ * // Markdown → PNG Blob
+ * const png = await markdownToPng('# Hello\n\nworld')
  *
- * // 3. 画像 URL を Base64 data URI に変換（画像を含む場合）
- * await resolveImages(layout)
- *
- * // 4. LayoutBox → SVG 文字列
- * const renderer = new SvgRenderer()
- * const svg = renderer.render(layout)
- *
- * // 5. SVG → PNG（オプション）
- * const pngBlob = await svgToPng(svg)
+ * // シンタックスハイライト付き
+ * const svg = await markdownToSvg(md, { highlighter })
  * ```
+ *
+ * ## 上級: 個別クラスを直接使う
+ *
+ * パーサー・レイアウトエンジン・レンダラーを個別に制御する場合は
+ * `parseMarkdown`, `LayoutEngine`, `SvgRenderer`, `resolveImages`, `svgToPng`
+ * を直接インポートして使う。
  */
 
 // --- 型定義 ---
@@ -138,3 +140,42 @@ export { svgToPng } from './renderer/png'
 
 // --- 画像解決 ---
 export { fetchAsDataUri, resolveImages, clearImageCache } from './image-resolver'
+
+// --- 統合関数 ---
+
+import { parseMarkdown } from './parser/markdown'
+import { LayoutEngine } from './layout/engine'
+import { SvgRenderer } from './renderer/svg'
+import { svgToPng } from './renderer/png'
+import { resolveImages } from './image-resolver'
+import type { CodeHighlighter } from './types/renderer'
+
+/** 統合関数のオプション */
+export type MarkdownToImageOptions = {
+  highlighter?: CodeHighlighter
+}
+
+/** Markdown → SVG 文字列 */
+export async function markdownToSvg(
+  markdown: string,
+  options?: MarkdownToImageOptions,
+): Promise<string> {
+  const ast = parseMarkdown(markdown)
+  const engine = new LayoutEngine()
+  if (options?.highlighter) {
+    engine.setHighlighter(options.highlighter)
+  }
+  const layout = engine.layout(ast)
+  await resolveImages(layout)
+  const renderer = new SvgRenderer()
+  return renderer.render(layout)
+}
+
+/** Markdown → PNG Blob */
+export async function markdownToPng(
+  markdown: string,
+  options?: MarkdownToImageOptions,
+): Promise<Blob> {
+  const svg = await markdownToSvg(markdown, options)
+  return svgToPng(svg)
+}
