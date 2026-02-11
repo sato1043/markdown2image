@@ -50,14 +50,16 @@ src/lib/markdown2image/
       canvas.ts                 # Canvas 2D API 共有モック
     parser.test.ts              # parseMarkdown           (17テスト)
     style.test.ts               # スタイル定数・関数       (34テスト)
+    style-factory.test.ts       # createStyleFactory      (29テスト)
     measure.test.ts             # TextMeasurer            (11テスト)
     engine.test.ts              # LayoutEngine            (49テスト)
     svg-renderer.test.ts        # SvgRenderer             (18テスト)
     image-resolver.test.ts      # fetchAsDataUri 等       (9テスト)
-    integration.test.ts         # markdownToSvg/Png統合   (8テスト)
+    integration.test.ts         # markdownToSvg/Png統合   (11テスト)
+    theme-resolve.test.ts       # resolveTheme/deepMerge  (26テスト)
 ```
 
-合計: 7スイート / 152テスト
+合計: 9スイート / 210テスト
 
 ### テスト対象外
 
@@ -95,11 +97,23 @@ src/lib/markdown2image/
 - **モック**: 不要（LayoutBoxを手動構築して入力）
 - **検証内容**: SVGルートタグ、背景矩形、テキスト描画（bold/italic/link下線/取り消し線/インラインコード背景）、コードブロック、引用、リスト、テーブル、画像（src有無でのフォールバック）、水平線、脚注、XMLエスケープ
 
+### theme-resolve.test.ts
+
+- **対象**: `resolveTheme`, `deepMerge`, `GITHUB_LIGHT`, `GITHUB_DARK`
+- **モック**: 不要
+- **検証内容**: deepMerge のネスト・不変性・undefined スキップ、resolveTheme のプリセット名解決・部分上書き・base 指定・不明名エラー・不変性、各プリセットの値検証
+
+### style-factory.test.ts
+
+- **対象**: `createStyleFactory` 関数
+- **モック**: 不要
+- **検証内容**: github-light ファクトリの全出力が既存デフォルトエクスポート関数と等価であること、github-dark ファクトリの色・背景値がダークテーマの値であること
+
 ### integration.test.ts
 
 - **対象**: `markdownToSvg`, `markdownToPng` 統合関数
 - **モック**: Canvas 2D API（共有モック）、`resolveImages`（fetch依存回避）、`svgToPng`（ブラウザAPI依存回避）
-- **検証内容**: SVG文字列の返却、オプションなし動作、highlighterオプション反映、空文字列処理、複数ブロック要素処理、markdownToPngのBlob返却とsvgToPng経由確認
+- **検証内容**: SVG文字列の返却、オプションなし動作、highlighterオプション反映、空文字列処理、複数ブロック要素処理、markdownToPngのBlob返却とsvgToPng経由確認、テーマプリセット指定、テーマ部分上書き、テーマなし=github-light等価
 
 ### image-resolver.test.ts
 
@@ -118,6 +132,10 @@ src/lib/markdown2image/
 テスト内でテキスト幅に基づく計算を行う場合、この固定幅を前提として期待値を設定する。
 
 ## カバレッジ
+
+カバレッジは `npx jest --coverage` で最新値を確認すること。
+
+以下は Phase 5 時点の参考値:
 
 | ファイル | Stmts | Branch | Funcs | Lines |
 |---|---|---|---|---|

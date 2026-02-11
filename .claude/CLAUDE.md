@@ -66,12 +66,18 @@ src/
     types/
       layout.ts           # LayoutBox, TextSpan, BoxStyle等の型定義
       renderer.ts         # Renderer / CodeHighlighter インターフェース
+      theme.ts            # Theme, ThemePreset, ThemeConfig, DeepPartial 型定義
+    theme/
+      resolve.ts          # resolveTheme(), deepMerge()
+      presets/
+        github-light.ts   # GitHub Light テーマプリセット
+        github-dark.ts    # GitHub Dark テーマプリセット
     parser/
       markdown.ts         # Markdown → mdast パース
     layout/
       engine.ts           # レイアウトエンジン本体
       measure.ts          # テキスト計測（Canvas measureText）
-      style.ts            # 固定スタイル定義
+      style.ts            # StyleFactory + テーマ対応スタイル定義
     renderer/
       svg.ts              # SVGレンダラー
       png.ts              # SVG → Canvas → PNG変換
@@ -86,15 +92,16 @@ public/
 ### 2.3 データフロー
 
 統合関数 `markdownToSvg(markdown, options?)` / `markdownToPng(markdown, options?)` が
-ステップ 2〜5 を内部で実行する。個別クラスの直接利用も可能である。
+ステップ 2〜6 を内部で実行する。個別クラスの直接利用も可能である。
 
 1. ユーザーがテキストエリアにMarkdownを入力する（200msデバウンス）
-2. パーサーがMarkdownをmdast ASTに変換する
-3. レイアウトエンジンがASTを走査しLayoutBoxツリーを生成する
-4. 画像URLをfetchしBase64 data URIに変換してLayoutBoxに設定する
-5. SVGレンダラーがLayoutBoxツリーからSVG文字列を生成する
-6. UIがSVGをプレビュー表示する
-7. ユーザーがダウンロードボタンでSVG/PNGを保存する
+2. テーマ設定を解決する（プリセット名 or 部分上書き → 完全な Theme オブジェクト）
+3. パーサーがMarkdownをmdast ASTに変換する
+4. レイアウトエンジンがASTを走査しLayoutBoxツリーを生成する（テーマ適用）
+5. 画像URLをfetchしBase64 data URIに変換してLayoutBoxに設定する
+6. SVGレンダラーがLayoutBoxツリーからSVG文字列を生成する（テーマ適用）
+7. UIがSVGをプレビュー表示する
+8. ユーザーがダウンロードボタンでSVG/PNGを保存する
 
 ## 3. ドメインモデル
 
@@ -254,13 +261,13 @@ TypeScript, JavaScript, Python, Rust, Go, Java, C, C++, C#, HTML, CSS, JSON, YAM
 | Phase 3 | shikiによるシンタックスハイライト (22言語) | 完了 |
 | Phase 4 | テーブル・画像埋め込み・脚注 | 完了 |
 | Phase 5 | PNG出力 (2倍スケール)・UI仕上げ (レスポンシブ対応) | 完了 |
+| Phase 6 | テーマシステム (github-light/github-dark プリセット、部分上書き) | 完了 |
 
 ## 7. テスト
 
 - テストフレームワーク: Jest + ts-jest（Node.js環境）
 - テスト対象: `src/lib/markdown2image/` コア変換ライブラリ（png.ts を除く）
-- テスト数: 7スイート / 152テスト
-- カバレッジ: Stmts 96.81% / Funcs 98.76% / Lines 97.68%
+- テスト数: 9スイート / 210テスト
 - 詳細: [./memories/TESTING.md](./memories/TESTING.md)
 
 ```bash
@@ -277,6 +284,6 @@ npx jest --coverage   # カバレッジ付き実行
 | 日本語の禁則処理 | 未実装 | 行頭・行末の禁則文字処理は未対応 |
 | 画像の実サイズ取得 | 未実装 | 画像は固定高さ(200px)のプレースホルダーで表示する |
 | テーブルセル内の折り返し | 基本動作 | 長いテキストは折り返すが、複雑なインライン要素のネストは未検証 |
-| スタイルのカスタマイズ | 未実装 | 固定スタイルのみ。テーマ切替は将来の拡張候補 |
+| スタイルのカスタマイズ | 対応済み | テーマシステム: `github-light` / `github-dark` プリセット、部分上書き対応。UI選択は未実装 |
 | 数式 (KaTeX/MathJax) | 未実装 | 将来の拡張候補 |
 

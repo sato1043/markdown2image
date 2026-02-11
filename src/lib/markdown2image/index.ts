@@ -83,6 +83,14 @@
  *
  * // シンタックスハイライト付き
  * const svg = await markdownToSvg(md, { highlighter })
+ *
+ * // テーマ指定（プリセット名）
+ * const darkSvg = await markdownToSvg(md, { theme: 'github-dark' })
+ *
+ * // テーマ指定（部分上書き）
+ * const customSvg = await markdownToSvg(md, {
+ *   theme: { base: 'github-dark', color: { link: '#ff6600' } },
+ * })
  * ```
  *
  * ## 上級: 個別クラスを直接使う
@@ -106,6 +114,13 @@ export type {
 
 export type { Renderer, CodeHighlighter } from './types/renderer'
 
+export type { Theme, ThemePreset, ThemeConfig, DeepPartial } from './types/theme'
+
+// --- テーマ ---
+export { resolveTheme } from './theme/resolve'
+export { GITHUB_LIGHT } from './theme/presets/github-light'
+export { GITHUB_DARK } from './theme/presets/github-dark'
+
 // --- パーサー ---
 export { parseMarkdown } from './parser/markdown'
 
@@ -113,6 +128,8 @@ export { parseMarkdown } from './parser/markdown'
 export { LayoutEngine } from './layout/engine'
 export { TextMeasurer } from './layout/measure'
 export {
+  createStyleFactory,
+  type StyleFactory,
   DOCUMENT_WIDTH,
   DOCUMENT_PADDING,
   CONTENT_WIDTH,
@@ -148,11 +165,14 @@ import { LayoutEngine } from './layout/engine'
 import { SvgRenderer } from './renderer/svg'
 import { svgToPng } from './renderer/png'
 import { resolveImages } from './image-resolver'
+import { resolveTheme } from './theme/resolve'
 import type { CodeHighlighter } from './types/renderer'
+import type { ThemePreset, ThemeConfig } from './types/theme'
 
 /** 統合関数のオプション */
 export type MarkdownToImageOptions = {
   highlighter?: CodeHighlighter
+  theme?: ThemePreset | ThemeConfig
 }
 
 /** Markdown → SVG 文字列 */
@@ -160,14 +180,15 @@ export async function markdownToSvg(
   markdown: string,
   options?: MarkdownToImageOptions,
 ): Promise<string> {
+  const theme = resolveTheme(options?.theme)
   const ast = parseMarkdown(markdown)
-  const engine = new LayoutEngine()
+  const engine = new LayoutEngine(theme)
   if (options?.highlighter) {
     engine.setHighlighter(options.highlighter)
   }
   const layout = engine.layout(ast)
   await resolveImages(layout)
-  const renderer = new SvgRenderer()
+  const renderer = new SvgRenderer(theme)
   return renderer.render(layout)
 }
 

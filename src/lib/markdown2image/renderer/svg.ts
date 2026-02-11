@@ -1,18 +1,25 @@
 import type { LayoutBox, TextLine, TextSpan, SpanStyle } from '../types/layout'
 import type { Renderer } from '../types/renderer'
+import type { Theme } from '../types/theme'
+import { GITHUB_LIGHT } from '../theme/presets/github-light'
 
-const INLINE_CODE_BG = '#f6f8fa'
-const INLINE_CODE_BORDER = '#d0d7de'
+// SVG描画パラメータ（カテゴリC: テーマ対象外の内部定数）
 const INLINE_CODE_PAD = 4
 const INLINE_CODE_PAD_V = 2
 
 /** LayoutBoxツリーからSVG文字列を生成するレンダラー */
 export class SvgRenderer implements Renderer {
+  private readonly theme: Theme
+
+  constructor(theme?: Theme) {
+    this.theme = theme ?? GITHUB_LIGHT
+  }
+
   render(layout: LayoutBox): string {
     const children = this.renderBox(layout)
     return [
       `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}">`,
-      `  <rect width="${layout.width}" height="${layout.height}" fill="${layout.style.backgroundColor ?? '#ffffff'}" />`,
+      `  <rect width="${layout.width}" height="${layout.height}" fill="${layout.style.backgroundColor ?? this.theme.document.backgroundColor}" />`,
       children,
       '</svg>',
     ].join('\n')
@@ -82,7 +89,7 @@ export class SvgRenderer implements Renderer {
       if (span.style.code) {
         // インラインコード: 背景矩形 + テキスト
         parts.push(
-          `<rect x="${cursorX}" y="${y + INLINE_CODE_PAD_V}" width="${w + INLINE_CODE_PAD * 2}" height="${line.height - INLINE_CODE_PAD_V * 2}" rx="4" fill="${INLINE_CODE_BG}" stroke="${INLINE_CODE_BORDER}" stroke-width="0.5" />`,
+          `<rect x="${cursorX}" y="${y + INLINE_CODE_PAD_V}" width="${w + INLINE_CODE_PAD * 2}" height="${line.height - INLINE_CODE_PAD_V * 2}" rx="4" fill="${this.theme.color.codeBg}" stroke="${this.theme.color.border}" stroke-width="0.5" />`,
         )
         parts.push(
           `<text x="${cursorX + INLINE_CODE_PAD}" y="${baselineY}" ${attrs}>${escaped}</text>`,
@@ -135,7 +142,7 @@ export class SvgRenderer implements Renderer {
 
     // 背景矩形
     elements.push(
-      `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" rx="6" fill="${box.style.backgroundColor ?? '#f6f8fa'}" stroke="${box.style.borderColor ?? '#d0d7de'}" stroke-width="1" />`,
+      `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" rx="6" fill="${box.style.backgroundColor ?? this.theme.color.codeBg}" stroke="${box.style.borderColor ?? this.theme.color.border}" stroke-width="1" />`,
     )
 
     // コード行
@@ -164,7 +171,7 @@ export class SvgRenderer implements Renderer {
 
     // 左ボーダー
     elements.push(
-      `<line x1="${box.x + 2}" y1="${box.y}" x2="${box.x + 2}" y2="${box.y + box.height}" stroke="${box.style.borderColor ?? '#d0d7de'}" stroke-width="4" stroke-linecap="round" />`,
+      `<line x1="${box.x + 2}" y1="${box.y}" x2="${box.x + 2}" y2="${box.y + box.height}" stroke="${box.style.borderColor ?? this.theme.color.border}" stroke-width="4" stroke-linecap="round" />`,
     )
 
     // 子要素
@@ -208,7 +215,7 @@ export class SvgRenderer implements Renderer {
 
     // 外枠
     elements.push(
-      `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="none" stroke="${box.style.borderColor ?? '#d0d7de'}" stroke-width="1" />`,
+      `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="none" stroke="${box.style.borderColor ?? this.theme.color.border}" stroke-width="1" />`,
     )
 
     // 行を描画する
@@ -222,7 +229,7 @@ export class SvgRenderer implements Renderer {
   /** テーブル行をSVGに変換する */
   private renderTableRow(box: LayoutBox): string {
     const elements: string[] = []
-    const borderColor = box.style.borderColor ?? '#d0d7de'
+    const borderColor = box.style.borderColor ?? this.theme.color.border
 
     // 行の下罫線
     elements.push(
@@ -240,7 +247,7 @@ export class SvgRenderer implements Renderer {
   /** テーブルセルをSVGに変換する */
   private renderTableCell(box: LayoutBox): string {
     const elements: string[] = []
-    const borderColor = box.style.borderColor ?? '#d0d7de'
+    const borderColor = box.style.borderColor ?? this.theme.color.border
 
     // ヘッダーの背景
     if (box.style.backgroundColor) {
@@ -277,10 +284,10 @@ export class SvgRenderer implements Renderer {
     } else {
       // 画像が取得できなかった場合のフォールバック
       elements.push(
-        `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1" rx="4" />`,
+        `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="${this.theme.color.codeBg}" stroke="${this.theme.color.border}" stroke-width="1" rx="4" />`,
       )
       elements.push(
-        `<text x="${box.x + box.width / 2}" y="${box.y + box.height / 2}" text-anchor="middle" dominant-baseline="middle" fill="#656d76" font-size="14">${escapeXml(box.alt ?? 'image')}</text>`,
+        `<text x="${box.x + box.width / 2}" y="${box.y + box.height / 2}" text-anchor="middle" dominant-baseline="middle" fill="${this.theme.color.muted}" font-size="14">${escapeXml(box.alt ?? 'image')}</text>`,
       )
     }
 
@@ -294,7 +301,7 @@ export class SvgRenderer implements Renderer {
     // 脚注コンテナ（親）の場合は区切り線を描画する
     if (box.children.length > 0) {
       elements.push(
-        `<line x1="${box.x}" y1="${box.y}" x2="${box.x + box.width * 0.3}" y2="${box.y}" stroke="${box.style.borderColor ?? '#d0d7de'}" stroke-width="1" />`,
+        `<line x1="${box.x}" y1="${box.y}" x2="${box.x + box.width * 0.3}" y2="${box.y}" stroke="${box.style.borderColor ?? this.theme.color.border}" stroke-width="1" />`,
       )
       for (const child of box.children) {
         elements.push(this.renderBox(child))

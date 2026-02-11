@@ -1,230 +1,241 @@
 import type { BoxStyle, SpanStyle, Spacing, HeadingDepth } from '../types/layout'
+import type { Theme } from '../types/theme'
+import { GITHUB_LIGHT } from '../theme/presets/github-light'
 
 const ZERO_SPACING: Spacing = { top: 0, right: 0, bottom: 0, left: 0 }
 
-const BASE_FONT_FAMILY = '"Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif'
-const CODE_FONT_FAMILY = '"Source Code Pro", "Consolas", "Menlo", monospace'
-const BASE_FONT_SIZE = 16
-const BASE_LINE_HEIGHT = 1.6
-const BASE_COLOR = '#1a1a1a'
-const LINK_COLOR = '#0969da'
-const CODE_BG_COLOR = '#f6f8fa'
-const CODE_BORDER_COLOR = '#d0d7de'
-const BLOCKQUOTE_BORDER_COLOR = '#d0d7de'
-const BLOCKQUOTE_COLOR = '#656d76'
-const HR_COLOR = '#d0d7de'
-const TABLE_BORDER_COLOR = '#d0d7de'
-const TABLE_HEADER_BG = '#f6f8fa'
-const FOOTNOTE_COLOR = '#656d76'
+/** スタイルファクトリが提供する関数群 */
+export type StyleFactory = {
+  readonly theme: Theme
+  documentWidth(): number
+  documentPadding(): Spacing
+  contentWidth(): number
+  tableCellPadH(): number
+  documentStyle(): BoxStyle
+  headingStyle(depth: HeadingDepth): BoxStyle
+  paragraphStyle(): BoxStyle
+  codeBlockStyle(): BoxStyle
+  blockquoteStyle(): BoxStyle
+  listStyle(): BoxStyle
+  listItemStyle(): BoxStyle
+  hrStyle(): BoxStyle
+  tableStyle(): BoxStyle
+  tableCellStyle(isHeader: boolean): BoxStyle
+  imageStyle(): BoxStyle
+  footnoteBlockStyle(): BoxStyle
+  defaultSpanStyle(): SpanStyle
+  inlineCodeSpanStyle(): Partial<SpanStyle>
+  linkSpanStyle(): Partial<SpanStyle>
+}
+
+/** テーマからスタイルファクトリを生成する */
+export function createStyleFactory(theme: Theme): StyleFactory {
+  const t = theme
+
+  return {
+    theme: t,
+
+    documentWidth: () => t.document.width,
+    documentPadding: () => t.document.padding,
+    contentWidth: () => t.document.width - t.document.padding.left - t.document.padding.right,
+    tableCellPadH: () => t.spacing.tableCellPadding.left + t.spacing.tableCellPadding.right,
+
+    documentStyle: (): BoxStyle => ({
+      fontFamily: t.font.base.family,
+      fontSize: t.font.base.size,
+      lineHeight: t.font.base.lineHeight,
+      color: t.color.text,
+      backgroundColor: t.document.backgroundColor,
+      padding: t.document.padding,
+      margin: ZERO_SPACING,
+    }),
+
+    headingStyle: (depth: HeadingDepth): BoxStyle => ({
+      fontFamily: t.font.base.family,
+      fontSize: t.heading.sizes[depth],
+      lineHeight: t.heading.lineHeight,
+      color: t.color.text,
+      padding: ZERO_SPACING,
+      margin: t.heading.margins[depth],
+    }),
+
+    paragraphStyle: (): BoxStyle => ({
+      fontFamily: t.font.base.family,
+      fontSize: t.font.base.size,
+      lineHeight: t.font.base.lineHeight,
+      color: t.color.text,
+      padding: ZERO_SPACING,
+      margin: { top: 0, right: 0, bottom: t.spacing.blockMarginBottom, left: 0 },
+    }),
+
+    codeBlockStyle: (): BoxStyle => ({
+      fontFamily: t.font.code.family,
+      fontSize: t.font.code.size,
+      lineHeight: t.font.code.lineHeight,
+      color: t.color.text,
+      backgroundColor: t.color.codeBg,
+      borderColor: t.color.border,
+      padding: t.spacing.codeBlockPadding,
+      margin: { top: 0, right: 0, bottom: t.spacing.blockMarginBottom, left: 0 },
+    }),
+
+    blockquoteStyle: (): BoxStyle => ({
+      fontFamily: t.font.base.family,
+      fontSize: t.font.base.size,
+      lineHeight: t.font.base.lineHeight,
+      color: t.color.muted,
+      borderColor: t.color.border,
+      padding: { top: 0, right: 0, bottom: 0, left: t.spacing.blockquotePaddingLeft },
+      margin: { top: 0, right: 0, bottom: t.spacing.blockMarginBottom, left: 0 },
+    }),
+
+    listStyle: (): BoxStyle => ({
+      fontFamily: t.font.base.family,
+      fontSize: t.font.base.size,
+      lineHeight: t.font.base.lineHeight,
+      color: t.color.text,
+      padding: { top: 0, right: 0, bottom: 0, left: t.spacing.listPaddingLeft },
+      margin: { top: 0, right: 0, bottom: t.spacing.blockMarginBottom, left: 0 },
+    }),
+
+    listItemStyle: (): BoxStyle => ({
+      fontFamily: t.font.base.family,
+      fontSize: t.font.base.size,
+      lineHeight: t.font.base.lineHeight,
+      color: t.color.text,
+      padding: ZERO_SPACING,
+      margin: { top: 0, right: 0, bottom: t.spacing.listItemMarginBottom, left: 0 },
+    }),
+
+    hrStyle: (): BoxStyle => ({
+      fontFamily: t.font.base.family,
+      fontSize: t.font.base.size,
+      lineHeight: t.font.base.lineHeight,
+      color: t.color.border,
+      padding: ZERO_SPACING,
+      margin: { top: t.spacing.hrMarginVertical, right: 0, bottom: t.spacing.hrMarginVertical, left: 0 },
+    }),
+
+    tableStyle: (): BoxStyle => ({
+      fontFamily: t.font.base.family,
+      fontSize: t.font.base.size,
+      lineHeight: t.font.base.lineHeight,
+      color: t.color.text,
+      borderColor: t.color.border,
+      padding: ZERO_SPACING,
+      margin: { top: 0, right: 0, bottom: t.spacing.blockMarginBottom, left: 0 },
+    }),
+
+    tableCellStyle: (isHeader: boolean): BoxStyle => ({
+      fontFamily: t.font.base.family,
+      fontSize: t.font.base.size,
+      lineHeight: t.font.base.lineHeight,
+      color: t.color.text,
+      backgroundColor: isHeader ? t.color.tableHeaderBg : undefined,
+      borderColor: t.color.border,
+      padding: t.spacing.tableCellPadding,
+      margin: ZERO_SPACING,
+    }),
+
+    imageStyle: (): BoxStyle => ({
+      fontFamily: t.font.base.family,
+      fontSize: t.font.base.size,
+      lineHeight: t.font.base.lineHeight,
+      color: t.color.text,
+      borderColor: t.color.border,
+      padding: ZERO_SPACING,
+      margin: { top: 0, right: 0, bottom: t.spacing.blockMarginBottom, left: 0 },
+    }),
+
+    footnoteBlockStyle: (): BoxStyle => ({
+      fontFamily: t.font.base.family,
+      fontSize: t.footnote.fontSize,
+      lineHeight: t.footnote.lineHeight,
+      color: t.color.muted,
+      borderColor: t.color.border,
+      padding: { top: t.spacing.footnotePaddingTop, right: 0, bottom: 0, left: 0 },
+      margin: { top: t.spacing.footnoteMarginTop, right: 0, bottom: 0, left: 0 },
+    }),
+
+    defaultSpanStyle: (): SpanStyle => ({
+      bold: false,
+      italic: false,
+      code: false,
+      strikethrough: false,
+      color: t.color.text,
+      fontFamily: t.font.base.family,
+      fontSize: t.font.base.size,
+    }),
+
+    inlineCodeSpanStyle: (): Partial<SpanStyle> => ({
+      code: true,
+      fontFamily: t.font.code.family,
+      fontSize: t.font.code.size,
+    }),
+
+    linkSpanStyle: (): Partial<SpanStyle> => ({
+      color: t.color.link,
+    }),
+  }
+}
+
+// --- デフォルトファクトリ（後方互換性のための既存エクスポート） ---
+
+const defaultFactory = createStyleFactory(GITHUB_LIGHT)
 
 /** ドキュメント全体の幅 (px) */
-export const DOCUMENT_WIDTH = 800
+export const DOCUMENT_WIDTH = defaultFactory.documentWidth()
 
 /** ドキュメントのパディング */
-export const DOCUMENT_PADDING: Spacing = { top: 40, right: 40, bottom: 40, left: 40 }
+export const DOCUMENT_PADDING: Spacing = defaultFactory.documentPadding()
 
 /** コンテンツ領域の幅 */
-export const CONTENT_WIDTH = DOCUMENT_WIDTH - DOCUMENT_PADDING.left - DOCUMENT_PADDING.right
-
-const HEADING_FONT_SIZES: Record<HeadingDepth, number> = {
-  1: 32,
-  2: 24,
-  3: 20,
-  4: 18,
-  5: 16,
-  6: 14,
-}
-
-const HEADING_MARGINS: Record<HeadingDepth, Spacing> = {
-  1: { top: 24, right: 0, bottom: 16, left: 0 },
-  2: { top: 24, right: 0, bottom: 16, left: 0 },
-  3: { top: 20, right: 0, bottom: 12, left: 0 },
-  4: { top: 16, right: 0, bottom: 8, left: 0 },
-  5: { top: 16, right: 0, bottom: 8, left: 0 },
-  6: { top: 16, right: 0, bottom: 8, left: 0 },
-}
-
-/** ドキュメントのスタイル */
-export function documentStyle(): BoxStyle {
-  return {
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: BASE_FONT_SIZE,
-    lineHeight: BASE_LINE_HEIGHT,
-    color: BASE_COLOR,
-    backgroundColor: '#ffffff',
-    padding: DOCUMENT_PADDING,
-    margin: ZERO_SPACING,
-  }
-}
-
-/** 見出しのスタイル */
-export function headingStyle(depth: HeadingDepth): BoxStyle {
-  return {
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: HEADING_FONT_SIZES[depth],
-    lineHeight: 1.3,
-    color: BASE_COLOR,
-    padding: ZERO_SPACING,
-    margin: HEADING_MARGINS[depth],
-  }
-}
-
-/** 段落のスタイル */
-export function paragraphStyle(): BoxStyle {
-  return {
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: BASE_FONT_SIZE,
-    lineHeight: BASE_LINE_HEIGHT,
-    color: BASE_COLOR,
-    padding: ZERO_SPACING,
-    margin: { top: 0, right: 0, bottom: 16, left: 0 },
-  }
-}
-
-/** コードブロックのスタイル */
-export function codeBlockStyle(): BoxStyle {
-  return {
-    fontFamily: CODE_FONT_FAMILY,
-    fontSize: 14,
-    lineHeight: 1.5,
-    color: BASE_COLOR,
-    backgroundColor: CODE_BG_COLOR,
-    borderColor: CODE_BORDER_COLOR,
-    padding: { top: 16, right: 16, bottom: 16, left: 16 },
-    margin: { top: 0, right: 0, bottom: 16, left: 0 },
-  }
-}
-
-/** 引用ブロックのスタイル */
-export function blockquoteStyle(): BoxStyle {
-  return {
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: BASE_FONT_SIZE,
-    lineHeight: BASE_LINE_HEIGHT,
-    color: BLOCKQUOTE_COLOR,
-    borderColor: BLOCKQUOTE_BORDER_COLOR,
-    padding: { top: 0, right: 0, bottom: 0, left: 16 },
-    margin: { top: 0, right: 0, bottom: 16, left: 0 },
-  }
-}
-
-/** リストのスタイル */
-export function listStyle(): BoxStyle {
-  return {
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: BASE_FONT_SIZE,
-    lineHeight: BASE_LINE_HEIGHT,
-    color: BASE_COLOR,
-    padding: { top: 0, right: 0, bottom: 0, left: 24 },
-    margin: { top: 0, right: 0, bottom: 16, left: 0 },
-  }
-}
-
-/** リストアイテムのスタイル */
-export function listItemStyle(): BoxStyle {
-  return {
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: BASE_FONT_SIZE,
-    lineHeight: BASE_LINE_HEIGHT,
-    color: BASE_COLOR,
-    padding: ZERO_SPACING,
-    margin: { top: 0, right: 0, bottom: 4, left: 0 },
-  }
-}
-
-/** 水平線のスタイル */
-export function hrStyle(): BoxStyle {
-  return {
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: BASE_FONT_SIZE,
-    lineHeight: BASE_LINE_HEIGHT,
-    color: HR_COLOR,
-    padding: ZERO_SPACING,
-    margin: { top: 24, right: 0, bottom: 24, left: 0 },
-  }
-}
-
-/** デフォルトのインラインスタイル */
-export function defaultSpanStyle(): SpanStyle {
-  return {
-    bold: false,
-    italic: false,
-    code: false,
-    strikethrough: false,
-    color: BASE_COLOR,
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: BASE_FONT_SIZE,
-  }
-}
-
-/** インラインコードのスタイル */
-export function inlineCodeSpanStyle(): Partial<SpanStyle> {
-  return {
-    code: true,
-    fontFamily: CODE_FONT_FAMILY,
-    fontSize: 14,
-  }
-}
-
-/** リンクのスタイル */
-export function linkSpanStyle(): Partial<SpanStyle> {
-  return {
-    color: LINK_COLOR,
-  }
-}
-
-/** テーブルのスタイル */
-export function tableStyle(): BoxStyle {
-  return {
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: BASE_FONT_SIZE,
-    lineHeight: BASE_LINE_HEIGHT,
-    color: BASE_COLOR,
-    borderColor: TABLE_BORDER_COLOR,
-    padding: ZERO_SPACING,
-    margin: { top: 0, right: 0, bottom: 16, left: 0 },
-  }
-}
-
-/** テーブルセルのスタイル */
-export function tableCellStyle(isHeader: boolean): BoxStyle {
-  return {
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: BASE_FONT_SIZE,
-    lineHeight: BASE_LINE_HEIGHT,
-    color: BASE_COLOR,
-    backgroundColor: isHeader ? TABLE_HEADER_BG : undefined,
-    borderColor: TABLE_BORDER_COLOR,
-    padding: { top: 6, right: 12, bottom: 6, left: 12 },
-    margin: ZERO_SPACING,
-  }
-}
+export const CONTENT_WIDTH = defaultFactory.contentWidth()
 
 /** テーブルセルのパディング水平合計 */
-export const TABLE_CELL_PAD_H = 24
+export const TABLE_CELL_PAD_H = defaultFactory.tableCellPadH()
+
+/** ドキュメントのスタイル */
+export const documentStyle = defaultFactory.documentStyle.bind(defaultFactory)
+
+/** 見出しのスタイル */
+export const headingStyle = defaultFactory.headingStyle.bind(defaultFactory)
+
+/** 段落のスタイル */
+export const paragraphStyle = defaultFactory.paragraphStyle.bind(defaultFactory)
+
+/** コードブロックのスタイル */
+export const codeBlockStyle = defaultFactory.codeBlockStyle.bind(defaultFactory)
+
+/** 引用ブロックのスタイル */
+export const blockquoteStyle = defaultFactory.blockquoteStyle.bind(defaultFactory)
+
+/** リストのスタイル */
+export const listStyle = defaultFactory.listStyle.bind(defaultFactory)
+
+/** リストアイテムのスタイル */
+export const listItemStyle = defaultFactory.listItemStyle.bind(defaultFactory)
+
+/** 水平線のスタイル */
+export const hrStyle = defaultFactory.hrStyle.bind(defaultFactory)
+
+/** デフォルトのインラインスタイル */
+export const defaultSpanStyle = defaultFactory.defaultSpanStyle.bind(defaultFactory)
+
+/** インラインコードのスタイル */
+export const inlineCodeSpanStyle = defaultFactory.inlineCodeSpanStyle.bind(defaultFactory)
+
+/** リンクのスタイル */
+export const linkSpanStyle = defaultFactory.linkSpanStyle.bind(defaultFactory)
+
+/** テーブルのスタイル */
+export const tableStyle = defaultFactory.tableStyle.bind(defaultFactory)
+
+/** テーブルセルのスタイル */
+export const tableCellStyle = defaultFactory.tableCellStyle.bind(defaultFactory)
 
 /** 画像のスタイル */
-export function imageStyle(): BoxStyle {
-  return {
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: BASE_FONT_SIZE,
-    lineHeight: BASE_LINE_HEIGHT,
-    color: BASE_COLOR,
-    borderColor: TABLE_BORDER_COLOR,
-    padding: ZERO_SPACING,
-    margin: { top: 0, right: 0, bottom: 16, left: 0 },
-  }
-}
+export const imageStyle = defaultFactory.imageStyle.bind(defaultFactory)
 
 /** 脚注ブロックのスタイル */
-export function footnoteBlockStyle(): BoxStyle {
-  return {
-    fontFamily: BASE_FONT_FAMILY,
-    fontSize: 13,
-    lineHeight: 1.5,
-    color: FOOTNOTE_COLOR,
-    borderColor: TABLE_BORDER_COLOR,
-    padding: { top: 16, right: 0, bottom: 0, left: 0 },
-    margin: { top: 24, right: 0, bottom: 0, left: 0 },
-  }
-}
+export const footnoteBlockStyle = defaultFactory.footnoteBlockStyle.bind(defaultFactory)

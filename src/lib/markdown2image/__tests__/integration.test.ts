@@ -1,6 +1,7 @@
 import { markdownToSvg, markdownToPng } from '../index'
 import { setupCanvasMock, teardownCanvasMock } from './__mocks__/canvas'
 import type { CodeHighlighter } from '../types/renderer'
+import { GITHUB_DARK } from '../theme/presets/github-dark'
 
 // resolveImages は fetch に依存するためモックする
 jest.mock('../image-resolver', () => ({
@@ -61,6 +62,26 @@ describe('統合関数', () => {
       expect(svg).toContain('Title')
       expect(svg).toContain('Paragraph')
       expect(svg).toContain('item1')
+    })
+
+    it('theme プリセット名を指定できる', async () => {
+      const svg = await markdownToSvg('# Hello', { theme: 'github-dark' })
+      expect(svg).toContain('<svg')
+      expect(svg).toContain(GITHUB_DARK.document.backgroundColor)
+    })
+
+    it('theme 部分上書きを指定できる', async () => {
+      const svg = await markdownToSvg('# Hello', {
+        theme: { base: 'github-dark', color: { link: '#ff6600' } },
+      })
+      expect(svg).toContain('<svg')
+      expect(svg).toContain(GITHUB_DARK.document.backgroundColor)
+    })
+
+    it('テーマなしは github-light と同じ出力になる', async () => {
+      const svgDefault = await markdownToSvg('# Hello')
+      const svgLight = await markdownToSvg('# Hello', { theme: 'github-light' })
+      expect(svgDefault).toBe(svgLight)
     })
   })
 

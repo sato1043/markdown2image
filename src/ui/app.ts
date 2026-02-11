@@ -1,7 +1,7 @@
 import { createHighlighter } from 'shiki'
 import type { BundledLanguage, BundledTheme } from 'shiki'
 import { markdownToSvg, svgToPng } from '../lib/markdown2image'
-import type { CodeHighlighter } from '../lib/markdown2image'
+import type { CodeHighlighter, ThemePreset } from '../lib/markdown2image'
 
 const SAMPLE_MARKDOWN = `# markdown2image
 
@@ -98,18 +98,20 @@ export async function initApp(): Promise<void> {
   const preview = document.getElementById('svg-preview') as HTMLDivElement
   const downloadSvgBtn = document.getElementById('download-svg') as HTMLButtonElement
   const downloadPngBtn = document.getElementById('download-png') as HTMLButtonElement
+  const themeSelect = document.getElementById('theme-select') as HTMLSelectElement
 
-  if (!textarea || !preview || !downloadSvgBtn || !downloadPngBtn) {
+  if (!textarea || !preview || !downloadSvgBtn || !downloadPngBtn || !themeSelect) {
     throw new Error('Required DOM elements not found')
   }
 
   let highlighter: CodeHighlighter | undefined
   let currentSvg = ''
+  let currentTheme: ThemePreset = (themeSelect.value as ThemePreset) ?? 'github-light'
   let renderTimer: ReturnType<typeof setTimeout> | null = null
 
   async function render(): Promise<void> {
     const markdown = textarea.value
-    currentSvg = await markdownToSvg(markdown, { highlighter })
+    currentSvg = await markdownToSvg(markdown, { highlighter, theme: currentTheme })
     preview.innerHTML = currentSvg
   }
 
@@ -124,6 +126,12 @@ export async function initApp(): Promise<void> {
     renderTimer = setTimeout(() => {
       render()
     }, 200)
+  })
+
+  // テーマ変更時は即座に再レンダリングする
+  themeSelect.addEventListener('change', () => {
+    currentTheme = themeSelect.value as ThemePreset
+    render()
   })
 
   downloadSvgBtn.addEventListener('click', () => {
@@ -150,7 +158,7 @@ export async function initApp(): Promise<void> {
   // shiki Highlighterを非同期で初期化し、CodeHighlighterアダプタ経由で設定する
   // noinspection TypeScriptValidateTypes — WebStorm が BundledHighlighterOptions の StringLiteralUnion<T> を解決できない (tsc は pass)
   const shikiHighlighter = await createHighlighter({
-    themes: ['github-light'] as BundledTheme[],
+    themes: ['github-light', 'github-dark'] as BundledTheme[],
     langs: SUPPORTED_LANGS,
   })
   const adapter: CodeHighlighter = {

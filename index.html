@@ -63,6 +63,17 @@
       cursor: not-allowed;
     }
 
+    .toolbar select {
+      padding: 6px 12px;
+      border: 1px solid #444c56;
+      border-radius: 6px;
+      background-color: #2d333b;
+      color: #ffffff;
+      font-size: 14px;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+
     .main-container {
       display: flex;
       height: calc(100vh - 48px);
@@ -147,6 +158,11 @@
   <header class="app-header">
     <h1>markdown2image</h1>
     <div class="toolbar">
+      <span class="toolbar-label">Theme:</span>
+      <select id="theme-select">
+        <option value="github-light">GitHub Light</option>
+        <option value="github-dark">GitHub Dark</option>
+      </select>
       <span class="toolbar-label">Download:</span>
       <button id="download-svg">SVG</button>
       <button id="download-png">PNG</button>

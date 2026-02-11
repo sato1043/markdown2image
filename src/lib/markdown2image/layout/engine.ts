@@ -1,36 +1,20 @@
 import type { Root, RootContent, PhrasingContent } from 'mdast'
 import type { LayoutBox, TextSpan, SpanStyle, HeadingDepth } from '../types/layout'
 import type { CodeHighlighter } from '../types/renderer'
+import type { Theme } from '../types/theme'
 import { TextMeasurer } from './measure'
-import {
-  documentStyle,
-  headingStyle,
-  paragraphStyle,
-  codeBlockStyle,
-  blockquoteStyle,
-  listStyle,
-  listItemStyle,
-  hrStyle,
-  tableStyle,
-  tableCellStyle,
-  imageStyle,
-  footnoteBlockStyle,
-  defaultSpanStyle,
-  inlineCodeSpanStyle,
-  linkSpanStyle,
-  TABLE_CELL_PAD_H,
-  DOCUMENT_PADDING,
-  CONTENT_WIDTH,
-  DOCUMENT_WIDTH,
-} from './style'
+import { createStyleFactory, type StyleFactory } from './style'
+import { GITHUB_LIGHT } from '../theme/presets/github-light'
 
 /** mdast AST → LayoutBoxツリーを生成する */
 export class LayoutEngine {
   private readonly measurer: TextMeasurer
+  private readonly styles: StyleFactory
   private highlighter: CodeHighlighter | null = null
 
-  constructor() {
+  constructor(theme?: Theme) {
     this.measurer = new TextMeasurer()
+    this.styles = createStyleFactory(theme ?? GITHUB_LIGHT)
   }
 
   /** コードハイライターを設定する（CodeHighlighterインターフェース準拠） */
@@ -40,12 +24,16 @@ export class LayoutEngine {
 
   /** ルートノードからレイアウトツリーを生成する */
   layout(root: Root): LayoutBox {
-    const docStyle = documentStyle()
+    const docStyle = this.styles.documentStyle()
+    const documentWidth = this.styles.documentWidth()
+    const documentPadding = this.styles.documentPadding()
+    const contentWidth = this.styles.contentWidth()
+
     const docBox: LayoutBox = {
       type: 'document',
       x: 0,
       y: 0,
-      width: DOCUMENT_WIDTH,
+      width: documentWidth,
       height: 0,
       style: docStyle,
       children: [],
@@ -56,7 +44,7 @@ export class LayoutEngine {
     // definition ノード (identifier: "^1", url: "内容") として解析される
     const footnotes: Array<{ identifier: string; text: string }> = []
 
-    let cursorY = DOCUMENT_PADDING.top
+    let cursorY = documentPadding.top
 
     for (const node of root.children) {
       // ^プレフィックス付きの definition ノードを脚注定義として扱う
@@ -70,7 +58,7 @@ export class LayoutEngine {
           continue
         }
       }
-      const child = this.layoutBlock(node, DOCUMENT_PADDING.left, cursorY, CONTENT_WIDTH)
+      const child = this.layoutBlock(node, documentPadding.left, cursorY, contentWidth)
       if (child) {
         docBox.children.push(child)
         cursorY = child.y + child.height + child.style.margin.bottom
@@ -79,12 +67,12 @@ export class LayoutEngine {
 
     // 脚注セクションをドキュメント末尾に配置する
     if (footnotes.length > 0) {
-      const fnBlock = this.layoutFootnotes(footnotes, DOCUMENT_PADDING.left, cursorY, CONTENT_WIDTH)
+      const fnBlock = this.layoutFootnotes(footnotes, documentPadding.left, cursorY, contentWidth)
       docBox.children.push(fnBlock)
       cursorY = fnBlock.y + fnBlock.height + fnBlock.style.margin.bottom
     }
 
-    docBox.height = cursorY + DOCUMENT_PADDING.bottom
+    docBox.height = cursorY + documentPadding.bottom
 
     return docBox
   }
@@ -125,9 +113,9 @@ export class LayoutEngine {
     availableWidth: number,
   ): LayoutBox {
     const depth = node.depth as HeadingDepth
-    const style = headingStyle(depth)
+    const style = this.styles.headingStyle(depth)
     const baseSpanStyle: SpanStyle = {
-      ...defaultSpanStyle(),
+      ...this.styles.defaultSpanStyle(),
       bold: true,
       fontSize: style.fontSize,
       fontFamily: style.fontFamily,
@@ -163,8 +151,8 @@ export class LayoutEngine {
       return this.layoutImage(img.url, img.alt ?? '', x, y, availableWidth)
     }
 
-    const style = paragraphStyle()
-    const baseSpanStyle = defaultSpanStyle()
+    const style = this.styles.paragraphStyle()
+    const baseSpanStyle = this.styles.defaultSpanStyle()
     const spans = this.extractSpans(node.children, baseSpanStyle)
     const lines = this.measurer.wrapSpans(spans, availableWidth, style.lineHeight)
     const textHeight = lines.reduce((sum, line) => sum + line.height, 0)
@@ -188,9 +176,9 @@ export class LayoutEngine {
     y: number,
     availableWidth: number,
   ): LayoutBox {
-    const style = codeBlockStyle()
+    const style = this.styles.codeBlockStyle()
     const baseCodeStyle: SpanStyle = {
-      ...defaultSpanStyle(),
+      ...this.styles.defaultSpanStyle(),
       fontFamily: style.fontFamily,
       fontSize: style.fontSize,
       code: true,
@@ -227,7 +215,7 @@ export class LayoutEngine {
       try {
         const loadedLangs = this.highlighter.getLoadedLanguages()
         if (loadedLangs.includes(lang)) {
-          const tokenLines = this.highlighter.tokenize(code, lang, 'github-light')
+          const tokenLines = this.highlighter.tokenize(code, lang, this.styles.theme.syntaxTheme)
           return tokenLines.map(tokenLine => {
             const spans: TextSpan[] = tokenLine.map(token => {
               const span: TextSpan = {
@@ -271,7 +259,7 @@ export class LayoutEngine {
     y: number,
     availableWidth: number,
   ): LayoutBox {
-    const style = blockquoteStyle()
+    const style = this.styles.blockquoteStyle()
     const innerX = x + style.padding.left
     const innerWidth = availableWidth - style.padding.left - style.padding.right
     const children: LayoutBox[] = []
@@ -305,7 +293,7 @@ export class LayoutEngine {
     y: number,
     availableWidth: number,
   ): LayoutBox {
-    const style = listStyle()
+    const style = this.styles.listStyle()
     const innerX = x + style.padding.left
     const innerWidth = availableWidth - style.padding.left - style.padding.right
     const children: LayoutBox[] = []
@@ -339,7 +327,7 @@ export class LayoutEngine {
     availableWidth: number,
     marker: string,
   ): LayoutBox {
-    const style = listItemStyle()
+    const style = this.styles.listItemStyle()
     const children: LayoutBox[] = []
     let cursorY = y
 
@@ -375,7 +363,7 @@ export class LayoutEngine {
 
   /** 水平線をレイアウトする */
   private layoutHr(x: number, y: number, availableWidth: number): LayoutBox {
-    const style = hrStyle()
+    const style = this.styles.hrStyle()
     return {
       type: 'hr',
       x,
@@ -394,8 +382,9 @@ export class LayoutEngine {
     y: number,
     availableWidth: number,
   ): LayoutBox {
-    const style = tableStyle()
-    const baseSpanStyle = defaultSpanStyle()
+    const style = this.styles.tableStyle()
+    const baseSpanStyle = this.styles.defaultSpanStyle()
+    const tableCellPadH = this.styles.tableCellPadH()
     const rows = node.children
     if (rows.length === 0) {
       return { type: 'table', x, y, width: availableWidth, height: 0, style, children: [] }
@@ -410,7 +399,7 @@ export class LayoutEngine {
         const cell = row.children[ci]
         const spans = this.extractSpans(cell.children, baseSpanStyle)
         const textWidth = spans.reduce((sum, s) => sum + this.measurer.measureWidth(s.text, s.style), 0)
-        colMaxWidths[ci] = Math.max(colMaxWidths[ci], textWidth + TABLE_CELL_PAD_H)
+        colMaxWidths[ci] = Math.max(colMaxWidths[ci], textWidth + tableCellPadH)
       }
     }
 
@@ -454,7 +443,8 @@ export class LayoutEngine {
     align: Array<string | null>,
     baseSpanStyle: SpanStyle,
   ): LayoutBox {
-    const cellStyle = tableCellStyle(isHeader)
+    const cellStyle = this.styles.tableCellStyle(isHeader)
+    const tableCellPadH = this.styles.tableCellPadH()
     const cellSpanStyle: SpanStyle = isHeader
       ? { ...baseSpanStyle, bold: true }
       : baseSpanStyle
@@ -466,7 +456,7 @@ export class LayoutEngine {
     for (let ci = 0; ci < colWidths.length; ci++) {
       const cellNode = row.children[ci]
       const spans = cellNode ? this.extractSpans(cellNode.children, cellSpanStyle) : []
-      const contentWidth = colWidths[ci] - TABLE_CELL_PAD_H
+      const contentWidth = colWidths[ci] - tableCellPadH
       const lines = this.measurer.wrapSpans(spans, contentWidth, cellStyle.lineHeight)
       const textHeight = lines.reduce((sum, line) => sum + line.height, 0)
       const cellHeight = textHeight + cellStyle.padding.top + cellStyle.padding.bottom
@@ -500,7 +490,7 @@ export class LayoutEngine {
       y,
       width: cellX - x,
       height: maxCellHeight,
-      style: tableCellStyle(isHeader),
+      style: this.styles.tableCellStyle(isHeader),
       children: cells,
     }
   }
@@ -513,9 +503,8 @@ export class LayoutEngine {
     y: number,
     availableWidth: number,
   ): LayoutBox {
-    const style = imageStyle()
-    // 画像の実サイズは不明のため、固定高さのプレースホルダーとする
-    const placeholderHeight = 200
+    const style = this.styles.imageStyle()
+    const placeholderHeight = this.styles.theme.imagePlaceholderHeight
 
     return {
       type: 'image',
@@ -537,12 +526,14 @@ export class LayoutEngine {
     y: number,
     availableWidth: number,
   ): LayoutBox {
-    const style = footnoteBlockStyle()
+    const style = this.styles.footnoteBlockStyle()
     const baseSpanStyle: SpanStyle = {
-      ...defaultSpanStyle(),
+      ...this.styles.defaultSpanStyle(),
       fontSize: style.fontSize,
       color: style.color,
     }
+
+    const footnoteItemMarginBottom = this.styles.theme.spacing.footnoteItemMarginBottom
 
     const children: LayoutBox[] = []
     let cursorY = y + style.margin.top + style.padding.top
@@ -569,12 +560,12 @@ export class LayoutEngine {
         y: cursorY,
         width: availableWidth,
         height: textHeight,
-        style: { ...style, margin: { top: 0, right: 0, bottom: 4, left: 0 } },
+        style: { ...style, margin: { top: 0, right: 0, bottom: footnoteItemMarginBottom, left: 0 } },
         children: [],
         lines,
       })
 
-      cursorY += textHeight + 4
+      cursorY += textHeight + footnoteItemMarginBottom
     }
 
     const totalHeight = cursorY - (y + style.margin.top)
@@ -593,6 +584,9 @@ export class LayoutEngine {
   /** PhrasingContent配列からTextSpan配列を抽出する */
   private extractSpans(nodes: PhrasingContent[], baseStyle: SpanStyle): TextSpan[] {
     const spans: TextSpan[] = []
+    const mutedColor = this.styles.theme.color.muted
+    const linkColor = this.styles.theme.color.link
+    const referenceScale = this.styles.theme.footnote.referenceScale
 
     for (const node of nodes) {
       switch (node.type) {
@@ -612,14 +606,14 @@ export class LayoutEngine {
         case 'inlineCode':
           spans.push({
             text: node.value,
-            style: { ...baseStyle, ...inlineCodeSpanStyle() },
+            style: { ...baseStyle, ...this.styles.inlineCodeSpanStyle() },
           })
           break
         case 'link':
           spans.push(
             ...this.extractSpans(node.children, {
               ...baseStyle,
-              ...linkSpanStyle(),
+              ...this.styles.linkSpanStyle(),
               link: node.url,
             }),
           )
@@ -633,7 +627,7 @@ export class LayoutEngine {
           // インライン画像はaltテキストで表示する
           spans.push({
             text: `[${(node as { alt?: string }).alt ?? 'image'}]`,
-            style: { ...baseStyle, color: '#656d76' },
+            style: { ...baseStyle, color: mutedColor },
           })
           break
         case 'linkReference': {
@@ -645,7 +639,7 @@ export class LayoutEngine {
             const fnId = ref.identifier.slice(1)
             spans.push({
               text: `[${fnId}]`,
-              style: { ...baseStyle, fontSize: baseStyle.fontSize * 0.75, color: '#0969da' },
+              style: { ...baseStyle, fontSize: baseStyle.fontSize * referenceScale, color: linkColor },
             })
           } else {
             // 通常のリンク参照はテキストとして表示する
@@ -657,7 +651,7 @@ export class LayoutEngine {
           // remark-footnotes 使用時のフォールバック
           spans.push({
             text: `[${(node as { identifier: string }).identifier}]`,
-            style: { ...baseStyle, fontSize: baseStyle.fontSize * 0.75, color: '#0969da' },
+            style: { ...baseStyle, fontSize: baseStyle.fontSize * referenceScale, color: linkColor },
           })
           break
         default:
