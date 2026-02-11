@@ -252,7 +252,21 @@ TypeScript, JavaScript, Python, Rust, Go, Java, C, C++, C#, HTML, CSS, JSON, YAM
 | Phase 4 | テーブル・画像埋め込み・脚注 | 完了 |
 | Phase 5 | PNG出力 (2倍スケール)・UI仕上げ (レスポンシブ対応) | 完了 |
 
-## 7. 既知の制約・今後の改善候補
+## 7. テスト
+
+- テストフレームワーク: Jest + ts-jest（Node.js環境）
+- テスト対象: `src/lib/markdown2image/` コア変換ライブラリ（png.ts を除く）
+- テスト数: 6スイート / 144テスト
+- カバレッジ: Stmts 96.81% / Funcs 98.76% / Lines 97.68%
+- 詳細: [./memories/TESTING.md](./memories/TESTING.md)
+
+```bash
+npm test              # 全テスト実行
+npm run test:watch    # ウォッチモード
+npx jest --coverage   # カバレッジ付き実行
+```
+
+## 8. 既知の制約・今後の改善候補
 
 | 項目 | 状態 | 備考 |
 |------|------|------|
