@@ -41,7 +41,7 @@ def greet(name: str) -> str:
 
 ### 画像
 
-![サンプル画像](/sample.svg)
+![サンプル画像](${import.meta.env.BASE_URL}sample.svg)
 
 ### テーブル
 
