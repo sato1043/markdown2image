@@ -276,7 +276,15 @@ npm run test:watch    # ウォッチモード
 npx jest --coverage   # カバレッジ付き実行
 ```
 
-## 8. 既知の制約・今後の改善候補
+## 8. デプロイ
+
+- 配信先: GitHub Pages（https://sato1043.github.io/markdown2image/）
+- ビルド・公開: GitHub Actions（`develop` への push で自動実行）
+- Node バージョン: `.node-version` を単一の定義としてローカルの fnm と CI が共有する
+- base path: project site 配下に置くため `vite.config.ts` の `base` を固定する
+- 詳細: [./memories/DEPLOYMENT.md](./memories/DEPLOYMENT.md)
+
+## 9. 既知の制約・今後の改善候補
 
 | 項目 | 状態 | 備考 |
 |------|------|------|
